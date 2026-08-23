@@ -5,6 +5,15 @@ import { ApiError } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
 import { AuthLayout } from '../components/layout/AuthLayout'
 
+const DEMO_ACCOUNTS = [
+  { label: 'Admin', email: 'admin@example.com' },
+  { label: 'Manager', email: 'manager@example.com' },
+  { label: 'Engineer', email: 'engineer@example.com' },
+  { label: 'Worker', email: 'worker@example.com' },
+] as const
+
+const DEMO_PASSWORD = 'Password123!'
+
 export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -18,6 +27,12 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  const fillDemo = (demoEmail: string) => {
+    setEmail(demoEmail)
+    setPassword(DEMO_PASSWORD)
+    setError(null)
+  }
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -44,7 +59,7 @@ export function LoginPage() {
   return (
     <AuthLayout
       title="Sign in"
-      subtitle="Access the Construction Company Management System."
+      subtitle="Use your company account to open projects, sites, and reports."
     >
       {resetSuccess ? (
         <Alert variant="success" role="status">
@@ -100,9 +115,25 @@ export function LoginPage() {
         </Button>
       </Form>
 
-      <p className="auth-hint mt-4 mb-0">
-        Demo accounts use password <code>Password123!</code>
-      </p>
+      <div className="auth-demo">
+        <p className="auth-demo-label">Demo accounts</p>
+        <div className="auth-demo-row" role="group" aria-label="Fill demo account">
+          {DEMO_ACCOUNTS.map((account) => (
+            <button
+              key={account.email}
+              type="button"
+              className="auth-demo-chip"
+              disabled={submitting}
+              onClick={() => fillDemo(account.email)}
+            >
+              {account.label}
+            </button>
+          ))}
+        </div>
+        <p className="auth-hint mb-0">
+          Password for all demo users: <code>{DEMO_PASSWORD}</code>
+        </p>
+      </div>
     </AuthLayout>
   )
 }
