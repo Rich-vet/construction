@@ -42,8 +42,10 @@ from app.services.notification_service import notify_user
 from app.utils.project_access import (
     ProjectAccessError,
     assert_can_manage,
+    assert_can_operate_site,
     assert_project_editable,
     can_manage_project,
+    can_operate_site,
     get_accessible_project,
     projects_query_for,
 )
@@ -304,6 +306,7 @@ def project_workspace(actor: User, project_id: int) -> dict:
     return {
         "project": project.to_dict(),
         "can_manage": can_manage_project(actor, project),
+        "can_operate_site": can_operate_site(actor, project),
         "totals": {
             "budget": budget_total,
             "actual_expenditure": actual,
@@ -671,10 +674,10 @@ def review_material_request(actor: User, request_id: int, status: str, notes: st
 
 
 def create_material_request(actor: User, data: dict) -> MaterialRequest:
-    """PM or SE can create; primarily SE later — allowed for PM demo/testing."""
+    """Site Engineer (primary) or PM/Admin can create requests on accessible projects."""
     project = get_accessible_project(actor, int(data.get("project_id")))
-    if actor.role_name not in {ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER}:
-        raise ProjectServiceError("Not allowed to create material requests.", status_code=403)
+    assert_can_operate_site(actor, project)
+    assert_project_editable(project)
     material = db.session.get(Material, int(data.get("material_id")))
     if material is None:
         raise ProjectServiceError("Material not found.")

@@ -10,7 +10,12 @@ from app.models import ActivityLog, Notification
 from app.services import company_service, user_service
 from app.services.admin_dashboard_service import admin_dashboard
 from app.utils.auth import get_current_user, roles_required
-from app.utils.roles import ADMINISTRATOR
+from app.utils.roles import (
+    ADMINISTRATOR,
+    CONTRACTOR_WORKER,
+    PROJECT_MANAGER,
+    SITE_ENGINEER,
+)
 from sqlalchemy import select
 
 from app.extensions import db
@@ -190,7 +195,7 @@ def activity_logs():
 
 
 @admin_bp.get("/notifications")
-@roles_required(ADMINISTRATOR)
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER, CONTRACTOR_WORKER)
 def notifications_list():
     actor = get_current_user()
     assert actor is not None
@@ -224,7 +229,7 @@ def notifications_list():
 
 
 @admin_bp.post("/notifications/<int:notification_id>/read")
-@roles_required(ADMINISTRATOR)
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER, CONTRACTOR_WORKER)
 @csrf.exempt
 def notifications_read(notification_id: int):
     _require_csrf()

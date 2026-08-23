@@ -53,11 +53,13 @@ def _register_blueprints(app: Flask) -> None:
     from app.routes.admin import admin_bp
     from app.routes.main import main_bp
     from app.routes.projects import projects_bp
+    from app.routes.site import site_bp
 
     app.register_blueprint(main_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(projects_bp, url_prefix="/api/projects")
+    app.register_blueprint(site_bp, url_prefix="/api/site")
 
 
 def _register_error_handlers(app: Flask) -> None:

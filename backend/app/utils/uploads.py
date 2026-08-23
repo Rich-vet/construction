@@ -58,3 +58,58 @@ def save_company_logo(file: FileStorage) -> str:
     _ = secure_filename(file.filename)
     file.save(destination)
     return f"logos/{safe_name}"
+
+
+ALLOWED_DOCUMENT_EXTENSIONS = {
+    "png",
+    "jpg",
+    "jpeg",
+    "webp",
+    "pdf",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "txt",
+}
+ALLOWED_DOCUMENT_MIMES = {
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/webp",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain",
+}
+
+
+def save_project_document(file: FileStorage) -> tuple[str, str | None, str | None]:
+    """Validate and store a project document/photo; return (relative_path, original, mime)."""
+    if file is None or not file.filename:
+        raise UploadError("Please choose a file to upload.")
+
+    ext = _extension(file.filename)
+    if ext not in ALLOWED_DOCUMENT_EXTENSIONS:
+        raise UploadError("File type is not allowed. Use images, PDF, or Office documents.")
+
+    mime = (file.mimetype or "").lower() or None
+    # Trust the extension as primary; reject only clearly mismatched known types.
+    if mime in {"application/javascript", "text/html", "application/x-msdownload"}:
+        raise UploadError("File type is not allowed.")
+
+    file.stream.seek(0, 2)
+    size = file.stream.tell()
+    file.stream.seek(0)
+    max_bytes = current_app.config["MAX_CONTENT_LENGTH"]
+    if size > max_bytes:
+        raise UploadError("File is too large.")
+
+    original = secure_filename(file.filename) or f"upload.{ext}"
+    safe_name = f"{uuid.uuid4().hex}.{ext}"
+    folder = Path(current_app.config["UPLOAD_FOLDER"]) / "documents"
+    folder.mkdir(parents=True, exist_ok=True)
+    file.save(folder / safe_name)
+    return f"documents/{safe_name}", original, mime

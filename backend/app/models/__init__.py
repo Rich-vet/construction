@@ -14,6 +14,14 @@ from app.models.project import (
     Task,
     TaskComment,
 )
+from app.models.site import (
+    Attendance,
+    Document,
+    Equipment,
+    EquipmentAllocation,
+    MaintenanceRecord,
+    MaterialTransaction,
+)
 from app.models.system import ActivityLog, Notification
 from app.models.user import PasswordResetToken, Role, User
 
@@ -40,6 +48,12 @@ __all__ = [
     "Quotation",
     "PurchaseOrder",
     "Delivery",
+    "Attendance",
+    "MaterialTransaction",
+    "Equipment",
+    "EquipmentAllocation",
+    "MaintenanceRecord",
+    "Document",
     "ActivityLog",
     "Notification",
 ]

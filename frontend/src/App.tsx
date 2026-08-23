@@ -20,6 +20,13 @@ import { ProjectFormPage } from './pages/pm/ProjectFormPage'
 import { ProjectDetailPage } from './pages/pm/ProjectDetailPage'
 import { MaterialRequestsPage } from './pages/pm/MaterialRequestsPage'
 import { PmReportsPage } from './pages/pm/PmReportsPage'
+import { SeDashboardPage } from './pages/se/SeDashboardPage'
+import { AttendancePage } from './pages/se/AttendancePage'
+import { MaterialsPage } from './pages/se/MaterialsPage'
+import { EquipmentPage } from './pages/se/EquipmentPage'
+import { ProgressUpdatesPage } from './pages/se/ProgressUpdatesPage'
+import { SiteReportsPage } from './pages/se/SiteReportsPage'
+import { DocumentsPage } from './pages/se/DocumentsPage'
 
 export default function App() {
   return (
@@ -43,18 +50,42 @@ export default function App() {
               <Route path="/users/:id/edit" element={<UserFormPage mode="edit" />} />
               <Route path="/company" element={<CompanyProfilePage />} />
               <Route path="/activity-log" element={<ActivityLogPage />} />
-              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+
+            <Route
+              element={
+                <RoleRoute roles={['Administrator', 'Project Manager', 'Site Engineer']} />
+              }
+            >
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/projects" element={<ProjectsListPage />} />
+              <Route path="/material-requests" element={<MaterialRequestsPage />} />
+              <Route path="/attendance" element={<AttendancePage />} />
+              <Route path="/materials" element={<MaterialsPage />} />
+              <Route path="/equipment" element={<EquipmentPage />} />
+              <Route path="/progress-updates" element={<ProgressUpdatesPage />} />
+              <Route path="/site-reports" element={<SiteReportsPage />} />
+              <Route path="/documents" element={<DocumentsPage />} />
             </Route>
 
             <Route element={<RoleRoute roles={['Administrator', 'Project Manager']} />}>
               <Route path="/pm" element={<PmDashboardPage />} />
-              <Route path="/projects" element={<ProjectsListPage />} />
               <Route path="/projects/create" element={<ProjectFormPage mode="create" />} />
-              <Route path="/projects/:id" element={<ProjectDetailPage />} />
               <Route path="/projects/:id/edit" element={<ProjectFormPage mode="edit" />} />
-              <Route path="/material-requests" element={<MaterialRequestsPage />} />
               <Route path="/reports" element={<PmReportsPage />} />
+            </Route>
+
+            <Route
+              element={
+                <RoleRoute roles={['Administrator', 'Project Manager', 'Site Engineer']} />
+              }
+            >
+              <Route path="/projects/:id" element={<ProjectDetailPage />} />
+            </Route>
+
+            <Route element={<RoleRoute roles={['Site Engineer', 'Administrator']} />}>
+              <Route path="/se" element={<SeDashboardPage />} />
             </Route>
           </Route>
 

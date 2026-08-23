@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react'
 import { Alert, Badge, Button, Form, Spinner, Table } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
+import { useAuth } from '../../context/AuthContext'
 import { ApiError } from '../../api/auth'
 import { fetchProjects, type ProjectSummary } from '../../api/projects'
 
 export function ProjectsListPage() {
+  const { user } = useAuth()
+  const canCreate = user?.role === 'Administrator' || user?.role === 'Project Manager'
+  const phase = user?.role === 'Site Engineer' ? 'SE' : 'PM'
   const [items, setItems] = useState<ProjectSummary[]>([])
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
@@ -28,7 +32,7 @@ export function ProjectsListPage() {
   }, [])
 
   return (
-    <AppShell breadcrumb="Projects" title="Projects" phaseLabel="PM">
+    <AppShell breadcrumb="Projects" title="Projects" phaseLabel={phase}>
       <div className="page-toolbar">
         <Form
           className="filter-bar"
@@ -54,9 +58,11 @@ export function ProjectsListPage() {
             Filter
           </Button>
         </Form>
-        <Link to="/projects/create" className="btn btn-primary">
-          Create project
-        </Link>
+        {canCreate ? (
+          <Link to="/projects/create" className="btn btn-primary">
+            Create project
+          </Link>
+        ) : null}
       </div>
 
       {error ? <Alert variant="danger">{error}</Alert> : null}
@@ -66,10 +72,16 @@ export function ProjectsListPage() {
         </div>
       ) : items.length === 0 ? (
         <div className="empty-panel">
-          <p>No projects have been created yet.</p>
-          <Link to="/projects/create" className="btn btn-primary">
-            Create Project
-          </Link>
+          <p>
+            {canCreate
+              ? 'No projects have been created yet.'
+              : 'No projects are assigned to you yet.'}
+          </p>
+          {canCreate ? (
+            <Link to="/projects/create" className="btn btn-primary">
+              Create Project
+            </Link>
+          ) : null}
         </div>
       ) : (
         <div className="table-panel">

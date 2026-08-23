@@ -30,14 +30,14 @@ export const navigation: NavSection[] = [
     items: [
       { id: 'employees', label: 'Employees', icon: 'bi-people' },
       { id: 'contractors', label: 'Contractors', icon: 'bi-person-badge' },
-      { id: 'attendance', label: 'Attendance', icon: 'bi-calendar-check' },
+      { id: 'attendance', label: 'Attendance', icon: 'bi-calendar-check', to: '/attendance', implemented: true },
     ],
   },
   {
     label: 'Resources',
     items: [
-      { id: 'materials', label: 'Materials', icon: 'bi-box-seam' },
-      { id: 'equipment', label: 'Equipment', icon: 'bi-truck' },
+      { id: 'materials', label: 'Materials', icon: 'bi-box-seam', to: '/materials', implemented: true },
+      { id: 'equipment', label: 'Equipment', icon: 'bi-truck', to: '/equipment', implemented: true },
     ],
   },
   {
@@ -65,13 +65,13 @@ export const navigation: NavSection[] = [
   {
     label: 'Progress',
     items: [
-      { id: 'progress_updates', label: 'Progress Updates', icon: 'bi-graph-up-arrow' },
-      { id: 'site_reports', label: 'Site Reports', icon: 'bi-journal-text' },
+      { id: 'progress_updates', label: 'Progress Updates', icon: 'bi-graph-up-arrow', to: '/progress-updates', implemented: true },
+      { id: 'site_reports', label: 'Site Reports', icon: 'bi-journal-text', to: '/site-reports', implemented: true },
     ],
   },
   {
     label: 'Documents',
-    items: [{ id: 'documents', label: 'Documents', icon: 'bi-folder2-open' }],
+    items: [{ id: 'documents', label: 'Documents', icon: 'bi-folder2-open', to: '/documents', implemented: true }],
   },
   {
     label: 'Reports',
