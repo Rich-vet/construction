@@ -18,7 +18,7 @@ import { PmDashboardPage } from './pages/pm/PmDashboardPage'
 import { ProjectFormPage } from './pages/pm/ProjectFormPage'
 import { ProjectDetailPage } from './pages/pm/ProjectDetailPage'
 import { MaterialRequestsPage } from './pages/pm/MaterialRequestsPage'
-import { PmReportsPage } from './pages/pm/PmReportsPage'
+import { ReportsPage } from './pages/ReportsPage'
 import { ProcurementListsPage } from './pages/pm/ProcurementListsPage'
 import { SeDashboardPage } from './pages/se/SeDashboardPage'
 import { MaterialsPage } from './pages/se/MaterialsPage'
@@ -91,7 +91,7 @@ export default function App() {
               <Route path="/pm" element={<PmDashboardPage />} />
               <Route path="/projects/create" element={<ProjectFormPage mode="create" />} />
               <Route path="/projects/:id/edit" element={<ProjectFormPage mode="edit" />} />
-              <Route path="/reports" element={<PmReportsPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
               <Route path="/quotations" element={<ProcurementListsPage initialTab="quotations" />} />
               <Route
                 path="/purchase-orders"
