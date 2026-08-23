@@ -123,6 +123,12 @@ def my_attendance():
     return jsonify({"items": worker_service.list_my_attendance(_actor())})
 
 
+@worker_bp.get("/documents")
+@roles_required(CONTRACTOR_WORKER, ADMINISTRATOR)
+def my_documents():
+    return jsonify({"items": worker_service.list_my_documents(_actor())})
+
+
 @worker_bp.get("/documents/<int:document_id>/download")
 @roles_required(CONTRACTOR_WORKER, ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER)
 def download_document(document_id: int):

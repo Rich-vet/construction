@@ -305,6 +305,28 @@ def list_my_attendance(actor: User) -> list[dict]:
     ]
 
 
+def list_my_documents(actor: User) -> list[dict]:
+    """Work evidence and documents uploaded by the worker on their projects."""
+    ids = [
+        p.id
+        for p in db.session.scalars(projects_query_for(actor))
+    ]
+    if not ids:
+        return []
+    return [
+        d.to_dict()
+        for d in db.session.scalars(
+            select(Document)
+            .options(joinedload(Document.project), joinedload(Document.uploaded_by), joinedload(Document.task))
+            .where(
+                Document.project_id.in_(ids),
+                Document.uploaded_by_id == actor.id,
+            )
+            .order_by(Document.created_at.desc())
+        ).unique()
+    ]
+
+
 def worker_meta() -> dict:
     return {
         "task_statuses": list(WORKER_TASK_STATUSES),

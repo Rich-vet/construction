@@ -68,3 +68,7 @@ export function uploadTaskEvidence(taskId: number, formData: FormData) {
 export function fetchMyAttendance() {
   return apiRequest<{ items: Array<Record<string, unknown>> }>('/api/worker/attendance')
 }
+
+export function fetchMyDocuments() {
+  return apiRequest<{ items: Array<Record<string, unknown>> }>('/api/worker/documents')
+}

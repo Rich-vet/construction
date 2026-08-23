@@ -347,3 +347,29 @@ def reports_summary():
             "projects": dash["projects"],
         }
     )
+
+
+@projects_bp.get("/quotations")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+def list_quotations():
+    return jsonify({"items": project_service.list_quotations(_actor())})
+
+
+@projects_bp.get("/purchase-orders")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+def list_purchase_orders():
+    return jsonify({"items": project_service.list_purchase_orders(_actor())})
+
+
+@projects_bp.get("/deliveries")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+def list_deliveries():
+    return jsonify({"items": project_service.list_deliveries(_actor())})
+
+
+@projects_bp.get("/activity-logs")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER)
+def project_activity_logs():
+    page = max(int(request.args.get("page", 1)), 1)
+    per_page = min(max(int(request.args.get("per_page", 20)), 1), 100)
+    return jsonify(project_service.list_accessible_activity(_actor(), page=page, per_page=per_page))

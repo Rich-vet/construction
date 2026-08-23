@@ -112,6 +112,36 @@ def material_usage():
     return jsonify({"message": "Material usage recorded.", "transaction": txn.to_dict()}), 201
 
 
+@site_bp.post("/materials")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+@csrf.exempt
+def create_material():
+    from app.services import inventory_service
+
+    _require_csrf()
+    try:
+        material = inventory_service.upsert_material(_actor(), request.get_json(silent=True) or {})
+    except inventory_service.InventoryServiceError as exc:
+        return jsonify({"error": "inventory_error", "message": exc.message}), exc.status_code
+    return jsonify({"message": "Material created.", "material": material.to_dict()}), 201
+
+
+@site_bp.put("/materials/<int:material_id>")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+@csrf.exempt
+def update_material(material_id: int):
+    from app.services import inventory_service
+
+    _require_csrf()
+    try:
+        material = inventory_service.upsert_material(
+            _actor(), request.get_json(silent=True) or {}, material_id=material_id
+        )
+    except inventory_service.InventoryServiceError as exc:
+        return jsonify({"error": "inventory_error", "message": exc.message}), exc.status_code
+    return jsonify({"message": "Material updated.", "material": material.to_dict()})
+
+
 @site_bp.get("/equipment")
 @roles_required(*SITE_ROLES)
 def list_equipment():
@@ -165,6 +195,63 @@ def maintenance():
     except Exception as exc:
         return _handle(exc)
     return jsonify({"message": "Maintenance logged.", "maintenance": record.to_dict()}), 201
+
+
+@site_bp.get("/equipment/maintenance")
+@roles_required(*SITE_ROLES)
+def list_maintenance():
+    from app.services import inventory_service
+
+    equipment_id = request.args.get("equipment_id", type=int)
+    try:
+        items = inventory_service.list_maintenance(_actor(), equipment_id=equipment_id)
+    except inventory_service.InventoryServiceError as exc:
+        return jsonify({"error": "inventory_error", "message": exc.message}), exc.status_code
+    return jsonify({"items": items})
+
+
+@site_bp.post("/equipment")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+@csrf.exempt
+def create_equipment():
+    from app.services import inventory_service
+
+    _require_csrf()
+    try:
+        equipment = inventory_service.upsert_equipment(_actor(), request.get_json(silent=True) or {})
+    except inventory_service.InventoryServiceError as exc:
+        return jsonify({"error": "inventory_error", "message": exc.message}), exc.status_code
+    return jsonify({"message": "Equipment created.", "equipment": equipment.to_dict()}), 201
+
+
+@site_bp.put("/equipment/<int:equipment_id>")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+@csrf.exempt
+def update_equipment(equipment_id: int):
+    from app.services import inventory_service
+
+    _require_csrf()
+    try:
+        equipment = inventory_service.upsert_equipment(
+            _actor(), request.get_json(silent=True) or {}, equipment_id=equipment_id
+        )
+    except inventory_service.InventoryServiceError as exc:
+        return jsonify({"error": "inventory_error", "message": exc.message}), exc.status_code
+    return jsonify({"message": "Equipment updated.", "equipment": equipment.to_dict()})
+
+
+@site_bp.post("/equipment/<int:equipment_id>/complete-maintenance")
+@roles_required(*SITE_ROLES)
+@csrf.exempt
+def complete_maintenance(equipment_id: int):
+    from app.services import inventory_service
+
+    _require_csrf()
+    try:
+        equipment = inventory_service.complete_maintenance(_actor(), equipment_id)
+    except inventory_service.InventoryServiceError as exc:
+        return jsonify({"error": "inventory_error", "message": exc.message}), exc.status_code
+    return jsonify({"message": "Equipment marked available.", "equipment": equipment.to_dict()})
 
 
 @site_bp.get("/progress-updates")

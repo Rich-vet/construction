@@ -20,6 +20,8 @@ ROLE_NAV: dict[str, set[str]] = {
         "contractors",
         "materials",
         "equipment",
+        "material_requests",
+        "documents",
         "reports",
         "notifications",
         "activity_log",

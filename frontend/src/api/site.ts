@@ -27,6 +27,7 @@ export type SiteMeta = {
   equipment_statuses: string[]
   equipment_conditions: string[]
   document_types: string[]
+  can_manage_catalog?: boolean
 }
 
 export function fetchSeDashboard() {
@@ -97,6 +98,37 @@ export function logMaintenance(payload: Record<string, unknown>) {
   return apiRequest('/api/site/equipment/maintenance', {
     method: 'POST',
     body: payload,
+    csrf: true,
+  })
+}
+
+export function fetchMaintenance(equipmentId?: number) {
+  const suffix = equipmentId ? `?equipment_id=${equipmentId}` : ''
+  return apiRequest<{ items: Array<Record<string, unknown>> }>(
+    `/api/site/equipment/maintenance${suffix}`,
+  )
+}
+
+export function createMaterial(payload: Record<string, unknown>) {
+  return apiRequest('/api/site/materials', { method: 'POST', body: payload, csrf: true })
+}
+
+export function updateMaterial(id: number, payload: Record<string, unknown>) {
+  return apiRequest(`/api/site/materials/${id}`, { method: 'PUT', body: payload, csrf: true })
+}
+
+export function createEquipment(payload: Record<string, unknown>) {
+  return apiRequest('/api/site/equipment', { method: 'POST', body: payload, csrf: true })
+}
+
+export function updateEquipment(id: number, payload: Record<string, unknown>) {
+  return apiRequest(`/api/site/equipment/${id}`, { method: 'PUT', body: payload, csrf: true })
+}
+
+export function completeEquipmentMaintenance(id: number) {
+  return apiRequest(`/api/site/equipment/${id}/complete-maintenance`, {
+    method: 'POST',
+    body: {},
     csrf: true,
   })
 }

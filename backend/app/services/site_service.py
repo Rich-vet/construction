@@ -324,8 +324,6 @@ def list_material_transactions(
     project_id: int | None = None,
 ) -> list[dict]:
     ids = _assigned_project_ids(actor)
-    if not ids:
-        return []
     stmt = (
         select(MaterialTransaction)
         .options(
@@ -333,33 +331,47 @@ def list_material_transactions(
             joinedload(MaterialTransaction.project),
             joinedload(MaterialTransaction.recorded_by),
         )
-        .where(
-            (MaterialTransaction.project_id.in_(ids))
-            | (MaterialTransaction.project_id.is_(None))
-        )
         .order_by(MaterialTransaction.transaction_date.desc(), MaterialTransaction.id.desc())
         .limit(200)
     )
+    if actor.role_name != ADMINISTRATOR:
+        if not ids:
+            return []
+        stmt = stmt.where(
+            (MaterialTransaction.project_id.in_(ids))
+            | (MaterialTransaction.project_id.is_(None))
+        )
     if project_id is not None:
-        if project_id not in ids:
+        if actor.role_name != ADMINISTRATOR and project_id not in ids:
             raise ProjectAccessError("You do not have access to this project.")
         stmt = stmt.where(MaterialTransaction.project_id == project_id)
     return [t.to_dict() for t in db.session.scalars(stmt).unique()]
 
 
 def record_material_usage(actor: User, data: dict) -> MaterialTransaction:
-    project = _require_site_project(actor, int(data.get("project_id")))
+    tx_type = (data.get("transaction_type") or "USAGE").strip().upper()
+    if tx_type not in TRANSACTION_TYPES:
+        raise SiteServiceError("Invalid transaction type.")
+
+    project = None
+    project_id_raw = data.get("project_id")
+    if tx_type in {"USAGE", "RETURN"}:
+        if not project_id_raw:
+            raise SiteServiceError("Project is required for usage and returns.")
+        project = _require_site_project(actor, int(project_id_raw))
+    elif project_id_raw not in (None, ""):
+        project = get_accessible_project(actor, int(project_id_raw))
+        assert_can_operate_site(actor, project)
+    elif actor.role_name not in {ADMINISTRATOR, PROJECT_MANAGER}:
+        raise SiteServiceError("Project is required for this transaction.", status_code=403)
+
     material = db.session.get(Material, int(data.get("material_id") or 0))
     if material is None:
         raise SiteServiceError("Material not found.")
 
     qty = _as_qty(data.get("quantity"))
-    if qty <= 0:
+    if tx_type != "ADJUSTMENT" and qty <= 0:
         raise SiteServiceError("Quantity must be greater than zero.")
-
-    tx_type = (data.get("transaction_type") or "USAGE").strip().upper()
-    if tx_type not in TRANSACTION_TYPES:
-        raise SiteServiceError("Invalid transaction type.")
 
     current = Decimal(str(material.quantity or 0))
     if tx_type == "USAGE":
@@ -382,13 +394,15 @@ def record_material_usage(actor: User, data: dict) -> MaterialTransaction:
     task_id = data.get("task_id")
     task = None
     if task_id:
+        if project is None:
+            raise SiteServiceError("Project is required when linking a task.")
         task = db.session.get(Task, int(task_id))
         if task is None or task.project_id != project.id:
             raise SiteServiceError("Task not found on this project.")
 
     txn = MaterialTransaction(
         material_id=material.id,
-        project_id=project.id,
+        project_id=project.id if project else None,
         task_id=task.id if task else None,
         transaction_type=tx_type,
         quantity=qty,
@@ -406,7 +420,11 @@ def record_material_usage(actor: User, data: dict) -> MaterialTransaction:
         entity_id=material.id,
         details=f"{tx_type} {qty} {material.unit or ''} of {material.name}",
     )
-    if float(material.quantity or 0) <= float(material.minimum_stock or 0) and project.project_manager_id:
+    if (
+        float(material.quantity or 0) <= float(material.minimum_stock or 0)
+        and project
+        and project.project_manager_id
+    ):
         notify_user(
             user_id=project.project_manager_id,
             title="Low stock alert",
@@ -768,12 +786,16 @@ def site_meta(actor: User) -> dict:
     ensure_demo_equipment()
     projects = [p.to_dict() for p in db.session.scalars(projects_query_for(actor).order_by(Project.name))]
     materials = [m.to_dict() for m in db.session.scalars(select(Material).order_by(Material.name))]
+    tx_types = ["USAGE", "RETURN"]
+    if actor.role_name in {ADMINISTRATOR, PROJECT_MANAGER}:
+        tx_types = ["USAGE", "RETURN", "PURCHASE", "ADJUSTMENT"]
     return {
         "projects": projects,
         "materials": materials,
         "attendance_statuses": list(ATTENDANCE_STATUSES),
-        "transaction_types": ["USAGE", "RETURN"],
+        "transaction_types": tx_types,
         "equipment_statuses": list(EQUIPMENT_STATUSES),
         "equipment_conditions": list(EQUIPMENT_CONDITIONS),
-        "document_types": ["Photo", "Drawing", "Permit", "Report", "Other"],
+        "document_types": ["Photo", "Drawing", "Permit", "Report", "Work Evidence", "Other"],
+        "can_manage_catalog": actor.role_name in {ADMINISTRATOR, PROJECT_MANAGER},
     }

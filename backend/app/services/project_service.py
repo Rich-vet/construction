@@ -797,6 +797,8 @@ def create_purchase_order_from_quotation(actor: User, quotation_id: int, expecte
 
 
 def record_delivery(actor: User, data: dict) -> Delivery:
+    from app.models import MaterialTransaction
+
     po = db.session.scalar(
         select(PurchaseOrder)
         .options(joinedload(PurchaseOrder.project), joinedload(PurchaseOrder.material))
@@ -819,9 +821,167 @@ def record_delivery(actor: User, data: dict) -> Delivery:
     po.status = "Delivered"
     if po.material:
         po.material.quantity = Decimal(po.material.quantity or 0) + qty
+        db.session.add(
+            MaterialTransaction(
+                material_id=po.material_id,
+                project_id=po.project_id,
+                transaction_type="PURCHASE",
+                quantity=qty,
+                unit_price=po.unit_price,
+                notes=f"Delivery for PO #{po.id}"
+                + (f": {delivery.delivery_note}" if delivery.delivery_note else ""),
+                transaction_date=delivery.delivery_date,
+                recorded_by_id=actor.id,
+            )
+        )
+        # Mark matching approved requests as fulfilled
+        approved = db.session.scalars(
+            select(MaterialRequest).where(
+                MaterialRequest.project_id == po.project_id,
+                MaterialRequest.material_id == po.material_id,
+                MaterialRequest.status == "Approved",
+            )
+        ).all()
+        for req in approved:
+            req.status = "Fulfilled"
+
     db.session.add(delivery)
+    db.session.flush()
+    log_activity(
+        actor=actor,
+        action=f"Recorded delivery for PO #{po.id}",
+        entity_type="project",
+        entity_id=po.project_id,
+        details=f"{qty} received",
+    )
     db.session.commit()
     return delivery
+
+
+def list_quotations(actor: User) -> list[dict]:
+    ids = [p["id"] for p in list_projects(actor)]
+    if not ids:
+        return []
+    return [
+        q.to_dict()
+        for q in db.session.scalars(
+            select(Quotation)
+            .options(
+                joinedload(Quotation.project),
+                joinedload(Quotation.supplier),
+                joinedload(Quotation.material),
+            )
+            .where(Quotation.project_id.in_(ids))
+            .order_by(Quotation.created_at.desc())
+        ).unique()
+    ]
+
+
+def list_purchase_orders(actor: User) -> list[dict]:
+    ids = [p["id"] for p in list_projects(actor)]
+    if not ids:
+        return []
+    return [
+        po.to_dict()
+        for po in db.session.scalars(
+            select(PurchaseOrder)
+            .options(
+                joinedload(PurchaseOrder.project),
+                joinedload(PurchaseOrder.supplier),
+                joinedload(PurchaseOrder.material),
+            )
+            .where(PurchaseOrder.project_id.in_(ids))
+            .order_by(PurchaseOrder.created_at.desc())
+        ).unique()
+    ]
+
+
+def list_deliveries(actor: User) -> list[dict]:
+    ids = [p["id"] for p in list_projects(actor)]
+    if not ids:
+        return []
+    return [
+        d.to_dict()
+        for d in db.session.scalars(
+            select(Delivery)
+            .options(
+                joinedload(Delivery.purchase_order).joinedload(PurchaseOrder.project),
+                joinedload(Delivery.purchase_order).joinedload(PurchaseOrder.material),
+                joinedload(Delivery.received_by),
+            )
+            .join(PurchaseOrder)
+            .where(PurchaseOrder.project_id.in_(ids))
+            .order_by(Delivery.delivery_date.desc(), Delivery.id.desc())
+        ).unique()
+    ]
+
+
+def list_accessible_activity(actor: User, *, page: int = 1, per_page: int = 20) -> dict:
+    """Activity visible to Admin (all) or PM/SE (their project-linked entities)."""
+    from app.models import ActivityLog, Document
+    from app.utils.roles import ADMINISTRATOR as ADMIN
+
+    page = max(page, 1)
+    per_page = min(max(per_page, 1), 100)
+
+    if actor.role_name == ADMIN:
+        total = db.session.scalar(select(func.count()).select_from(ActivityLog)) or 0
+        items = db.session.scalars(
+            select(ActivityLog)
+            .order_by(ActivityLog.created_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        ).all()
+        return {
+            "items": [i.to_dict() for i in items],
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "pages": (total + per_page - 1) // per_page if total else 0,
+        }
+
+    projects = list_projects(actor)
+    project_ids = [p["id"] for p in projects]
+    if not project_ids:
+        return {"items": [], "page": page, "per_page": per_page, "total": 0, "pages": 0}
+
+    task_ids = list(
+        db.session.scalars(select(Task.id).where(Task.project_id.in_(project_ids)))
+    )
+    doc_ids = list(
+        db.session.scalars(select(Document.id).where(Document.project_id.in_(project_ids)))
+    )
+
+    filters = [
+        db.and_(ActivityLog.entity_type == "project", ActivityLog.entity_id.in_(project_ids))
+    ]
+    if task_ids:
+        filters.append(
+            db.and_(ActivityLog.entity_type == "task", ActivityLog.entity_id.in_(task_ids))
+        )
+    if doc_ids:
+        filters.append(
+            db.and_(ActivityLog.entity_type == "document", ActivityLog.entity_id.in_(doc_ids))
+        )
+
+    base_where = or_(*filters)
+    total = (
+        db.session.scalar(select(func.count()).select_from(ActivityLog).where(base_where)) or 0
+    )
+    items = db.session.scalars(
+        select(ActivityLog)
+        .where(base_where)
+        .order_by(ActivityLog.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    ).all()
+    return {
+        "items": [i.to_dict() for i in items],
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "pages": (total + per_page - 1) // per_page if total else 0,
+    }
 
 
 def pm_dashboard(actor: User) -> dict:

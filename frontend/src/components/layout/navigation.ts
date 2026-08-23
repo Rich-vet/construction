@@ -57,9 +57,9 @@ export const navigation: NavSection[] = [
         to: '/material-requests',
         implemented: true,
       },
-      { id: 'quotations', label: 'Quotations', icon: 'bi-file-earmark-text' },
-      { id: 'purchase_orders', label: 'Purchase Orders', icon: 'bi-cart-check' },
-      { id: 'deliveries', label: 'Deliveries', icon: 'bi-box-arrow-in-down' },
+      { id: 'quotations', label: 'Quotations', icon: 'bi-file-earmark-text', to: '/quotations', implemented: true },
+      { id: 'purchase_orders', label: 'Purchase Orders', icon: 'bi-cart-check', to: '/purchase-orders', implemented: true },
+      { id: 'deliveries', label: 'Deliveries', icon: 'bi-box-arrow-in-down', to: '/deliveries', implemented: true },
     ],
   },
   {

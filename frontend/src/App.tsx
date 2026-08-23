@@ -19,17 +19,18 @@ import { ProjectFormPage } from './pages/pm/ProjectFormPage'
 import { ProjectDetailPage } from './pages/pm/ProjectDetailPage'
 import { MaterialRequestsPage } from './pages/pm/MaterialRequestsPage'
 import { PmReportsPage } from './pages/pm/PmReportsPage'
+import { ProcurementListsPage } from './pages/pm/ProcurementListsPage'
 import { SeDashboardPage } from './pages/se/SeDashboardPage'
 import { MaterialsPage } from './pages/se/MaterialsPage'
 import { EquipmentPage } from './pages/se/EquipmentPage'
 import { ProgressUpdatesPage } from './pages/se/ProgressUpdatesPage'
 import { SiteReportsPage } from './pages/se/SiteReportsPage'
-import { DocumentsPage } from './pages/se/DocumentsPage'
 import { WorkerDashboardPage } from './pages/worker/WorkerDashboardPage'
 import { MyTasksPage } from './pages/worker/MyTasksPage'
 import { TaskDetailPage } from './pages/worker/TaskDetailPage'
 import { ProjectsGatePage } from './pages/worker/ProjectsGatePage'
 import { AttendanceGatePage } from './pages/worker/AttendanceGatePage'
+import { DocumentsGatePage } from './pages/worker/DocumentsGatePage'
 
 export default function App() {
   return (
@@ -52,7 +53,6 @@ export default function App() {
               <Route path="/users/:id" element={<UserDetailPage />} />
               <Route path="/users/:id/edit" element={<UserFormPage mode="edit" />} />
               <Route path="/company" element={<CompanyProfilePage />} />
-              <Route path="/activity-log" element={<ActivityLogPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
 
@@ -71,6 +71,7 @@ export default function App() {
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/projects" element={<ProjectsGatePage />} />
               <Route path="/attendance" element={<AttendanceGatePage />} />
+              <Route path="/documents" element={<DocumentsGatePage />} />
             </Route>
 
             <Route
@@ -78,12 +79,12 @@ export default function App() {
                 <RoleRoute roles={['Administrator', 'Project Manager', 'Site Engineer']} />
               }
             >
+              <Route path="/activity-log" element={<ActivityLogPage />} />
               <Route path="/material-requests" element={<MaterialRequestsPage />} />
               <Route path="/materials" element={<MaterialsPage />} />
               <Route path="/equipment" element={<EquipmentPage />} />
               <Route path="/progress-updates" element={<ProgressUpdatesPage />} />
               <Route path="/site-reports" element={<SiteReportsPage />} />
-              <Route path="/documents" element={<DocumentsPage />} />
             </Route>
 
             <Route element={<RoleRoute roles={['Administrator', 'Project Manager']} />}>
@@ -91,6 +92,12 @@ export default function App() {
               <Route path="/projects/create" element={<ProjectFormPage mode="create" />} />
               <Route path="/projects/:id/edit" element={<ProjectFormPage mode="edit" />} />
               <Route path="/reports" element={<PmReportsPage />} />
+              <Route path="/quotations" element={<ProcurementListsPage initialTab="quotations" />} />
+              <Route
+                path="/purchase-orders"
+                element={<ProcurementListsPage initialTab="orders" />}
+              />
+              <Route path="/deliveries" element={<ProcurementListsPage initialTab="deliveries" />} />
             </Route>
 
             <Route

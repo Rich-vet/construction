@@ -4,6 +4,7 @@ import { AppShell } from '../../components/layout/AppShell'
 import { ApiError } from '../../api/auth'
 import { createMaterialRequest, fetchMaterialRequests } from '../../api/projects'
 import {
+  createMaterial,
   fetchMaterialTransactions,
   fetchMaterialsStock,
   fetchSiteMeta,
@@ -23,6 +24,9 @@ export function MaterialsPage() {
   const [notes, setNotes] = useState('')
   const [reqQty, setReqQty] = useState('')
   const [reqReason, setReqReason] = useState('')
+  const [newName, setNewName] = useState('')
+  const [newUnit, setNewUnit] = useState('unit')
+  const [newMin, setNewMin] = useState('0')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -60,7 +64,7 @@ export function MaterialsPage() {
     setMessage(null)
     try {
       await recordMaterialUsage({
-        project_id: Number(projectId),
+        project_id: projectId ? Number(projectId) : null,
         material_id: Number(materialId),
         quantity: Number(quantity),
         transaction_type: txType,
@@ -72,6 +76,25 @@ export function MaterialsPage() {
       load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Unable to record usage.')
+    }
+  }
+
+  const onCreateMaterial = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setMessage(null)
+    try {
+      await createMaterial({
+        name: newName,
+        unit: newUnit,
+        minimum_stock: Number(newMin),
+      })
+      setMessage('Material added to catalog.')
+      setNewName('')
+      setNewMin('0')
+      load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Unable to create material.')
     }
   }
 
@@ -101,12 +124,45 @@ export function MaterialsPage() {
       {message ? <Alert variant="success">{message}</Alert> : null}
 
       <div className="admin-panels">
+        {meta?.can_manage_catalog ? (
+          <section className="panel-card">
+            <h2 className="section-title">Add material to catalog</h2>
+            <Form className="form-grid" onSubmit={(e) => void onCreateMaterial(e)}>
+              <Form.Group>
+                <Form.Label>Name</Form.Label>
+                <Form.Control required value={newName} onChange={(e) => setNewName(e.target.value)} />
+              </Form.Group>
+              <Form.Group>
+                <Form.Label>Unit</Form.Label>
+                <Form.Control value={newUnit} onChange={(e) => setNewUnit(e.target.value)} />
+              </Form.Group>
+              <Form.Group>
+                <Form.Label>Minimum stock</Form.Label>
+                <Form.Control
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newMin}
+                  onChange={(e) => setNewMin(e.target.value)}
+                />
+              </Form.Group>
+              <div className="form-grid__full">
+                <Button type="submit">Add material</Button>
+              </div>
+            </Form>
+          </section>
+        ) : null}
+
         <section className="panel-card">
-          <h2 className="section-title">Record usage / return</h2>
+          <h2 className="section-title">Record stock movement</h2>
           <Form className="form-grid" onSubmit={(e) => void onUsage(e)}>
             <Form.Group>
-              <Form.Label>Project</Form.Label>
-              <Form.Select required value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+              <Form.Label>Project {txType === 'USAGE' || txType === 'RETURN' ? '' : '(optional)'}</Form.Label>
+              <Form.Select
+                required={txType === 'USAGE' || txType === 'RETURN'}
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+              >
                 <option value="">Select</option>
                 {(meta?.projects ?? []).map((p) => (
                   <option key={String(p.id)} value={String(p.id)}>

@@ -156,6 +156,33 @@ export function createDelivery(payload: Record<string, unknown>) {
   return apiRequest('/api/projects/deliveries', { method: 'POST', body: payload, csrf: true })
 }
 
+export function fetchQuotations() {
+  return apiRequest<{ items: Array<Record<string, unknown>> }>('/api/projects/quotations')
+}
+
+export function fetchPurchaseOrders() {
+  return apiRequest<{ items: Array<Record<string, unknown>> }>('/api/projects/purchase-orders')
+}
+
+export function fetchDeliveries() {
+  return apiRequest<{ items: Array<Record<string, unknown>> }>('/api/projects/deliveries')
+}
+
+export function fetchProjectActivityLogs(page = 1) {
+  return apiRequest<{
+    items: Array<{
+      id: number
+      actor_name: string
+      action: string
+      details: string | null
+      created_at: string | null
+    }>
+    page: number
+    pages: number
+    total: number
+  }>(`/api/projects/activity-logs?page=${page}`)
+}
+
 export function fetchPmReportSummary() {
   return apiRequest<Record<string, unknown>>('/api/projects/reports/summary')
 }
