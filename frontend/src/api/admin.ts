@@ -149,13 +149,13 @@ export function fetchActivityLogs(page = 1) {
 
 export function fetchNotifications(page = 1) {
   return apiRequest<Paginated<NotificationItem> & { unread_count: number }>(
-    `/api/admin/notifications?page=${page}`,
+    `/api/notifications?page=${page}`,
   )
 }
 
 export function markNotificationRead(id: number) {
   return apiRequest<{ message: string; notification: NotificationItem }>(
-    `/api/admin/notifications/${id}/read`,
+    `/api/notifications/${id}/read`,
     { method: 'POST', csrf: true },
   )
 }

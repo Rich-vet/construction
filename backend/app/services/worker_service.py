@@ -226,7 +226,7 @@ def add_my_task_comment(actor: User, task_id: int, body: str) -> TaskComment:
             user_id=task.project.project_manager_id,
             title="New task comment",
             message=f'{actor.full_name} commented on "{task.name}".',
-            link=f"/tasks/{task.id}",
+            link=f"/projects/{task.project_id}",
         )
     db.session.commit()
     return comment

@@ -197,47 +197,27 @@ def activity_logs():
 @admin_bp.get("/notifications")
 @roles_required(ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER, CONTRACTOR_WORKER)
 def notifications_list():
+    """Legacy path — prefer /api/notifications."""
+    from app.services import notification_service
+
     actor = get_current_user()
     assert actor is not None
     page = max(int(request.args.get("page", 1)), 1)
     per_page = min(max(int(request.args.get("per_page", 20)), 1), 100)
-    base = select(Notification).where(Notification.user_id == actor.id)
-    total = db.session.scalar(
-        select(db.func.count()).select_from(Notification).where(Notification.user_id == actor.id)
-    ) or 0
-    items = db.session.scalars(
-        base.order_by(Notification.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
-    ).all()
-    unread = (
-        db.session.scalar(
-            select(db.func.count())
-            .select_from(Notification)
-            .where(Notification.user_id == actor.id, Notification.is_read.is_(False))
-        )
-        or 0
-    )
-    return jsonify(
-        {
-            "items": [i.to_dict() for i in items],
-            "unread_count": unread,
-            "page": page,
-            "per_page": per_page,
-            "total": total,
-            "pages": (total + per_page - 1) // per_page if total else 0,
-        }
-    )
+    return jsonify(notification_service.list_notifications(actor.id, page=page, per_page=per_page))
 
 
 @admin_bp.post("/notifications/<int:notification_id>/read")
 @roles_required(ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER, CONTRACTOR_WORKER)
 @csrf.exempt
 def notifications_read(notification_id: int):
+    """Legacy path — prefer /api/notifications."""
+    from app.services import notification_service
+
     _require_csrf()
     actor = get_current_user()
     assert actor is not None
-    note = db.session.get(Notification, notification_id)
-    if note is None or note.user_id != actor.id:
+    note = notification_service.mark_notification_read(actor.id, notification_id)
+    if note is None:
         return jsonify({"error": "not_found", "message": "Notification not found."}), 404
-    note.is_read = True
-    db.session.commit()
     return jsonify({"message": "Notification marked as read.", "notification": note.to_dict()})

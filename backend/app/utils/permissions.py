@@ -65,6 +65,7 @@ ROLE_NAV: dict[str, set[str]] = {
         "site_reports",
         "documents",
         "notifications",
+        "activity_log",
     },
     CONTRACTOR_WORKER: {
         "dashboard",

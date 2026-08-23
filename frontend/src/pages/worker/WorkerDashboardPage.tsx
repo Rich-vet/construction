@@ -37,8 +37,8 @@ export function WorkerDashboardPage() {
               ['Due Soon', data.cards.due_soon, 'bi-calendar-event'],
               ['Overdue', data.cards.overdue, 'bi-exclamation-triangle'],
               ['Completed', data.cards.completed, 'bi-check2-circle'],
-              ['Notifications', data.cards.unread_notifications, 'bi-bell'],
-            ].map(([label, value, icon], index) => (
+              ['Notifications', data.cards.unread_notifications, 'bi-bell', '/notifications'],
+            ].map(([label, value, icon, to], index) => (
               <article
                 key={String(label)}
                 className="status-card"
@@ -49,6 +49,11 @@ export function WorkerDashboardPage() {
                 </div>
                 <h3 className="status-card__title">{label}</h3>
                 <p className="stat-value">{value}</p>
+                {to ? (
+                  <Link to={String(to)} className="small">
+                    View
+                  </Link>
+                ) : null}
               </article>
             ))}
           </section>
@@ -148,6 +153,29 @@ export function WorkerDashboardPage() {
                     ))}
                   </tbody>
                 </Table>
+              )}
+            </section>
+
+            <section className="panel-card">
+              <div className="panel-card__header">
+                <h2 className="section-title">Recent notifications</h2>
+                <Link to="/notifications">Inbox</Link>
+              </div>
+              {data.recent_notifications.length === 0 ? (
+                <p className="text-muted mb-0">No notifications yet.</p>
+              ) : (
+                <ul className="list-unstyled mb-0">
+                  {data.recent_notifications.map((n) => (
+                    <li key={String(n.id)} className="mb-2 border-bottom pb-2">
+                      <strong>{String(n.title)}</strong>
+                      <div className="small text-muted">
+                        {n.created_at ? new Date(String(n.created_at)).toLocaleString() : '—'}
+                        {n.is_read ? '' : ' · Unread'}
+                      </div>
+                      <div>{String(n.message)}</div>
+                    </li>
+                  ))}
+                </ul>
               )}
             </section>
 

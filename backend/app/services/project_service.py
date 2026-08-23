@@ -178,6 +178,13 @@ def create_project(actor: User, data: dict) -> Project:
         message=f'You are the project manager for "{project.name}".',
         link=f"/projects/{project.id}",
     )
+    if engineer:
+        notify_user(
+            user_id=engineer.id,
+            title="Site engineer assigned",
+            message=f'You are the site engineer for "{project.name}".',
+            link=f"/projects/{project.id}",
+        )
     db.session.commit()
     return project
 
@@ -563,6 +570,12 @@ def add_project_member(actor: User, project_id: int, user_id: int, member_role: 
         entity_type="project",
         entity_id=project.id,
     )
+    notify_user(
+        user_id=user.id,
+        title="Added to project team",
+        message=f'You were added to "{project.name}" as {member.member_role}.',
+        link=f"/projects/{project.id}" if user.role_name != "Contractor/Worker" else "/projects",
+    )
     db.session.commit()
     return member
 
@@ -576,7 +589,14 @@ def remove_project_member(actor: User, member_id: int) -> None:
     assert_project_editable(project)
     if member.user_id == project.project_manager_id:
         raise ProjectServiceError("Cannot remove the project manager from the team.")
+    name = member.user.full_name if member.user else f"User #{member.user_id}"
     db.session.delete(member)
+    log_activity(
+        actor=actor,
+        action=f"Removed team member {name}",
+        entity_type="project",
+        entity_id=project.id,
+    )
     db.session.commit()
 
 
@@ -695,6 +715,13 @@ def create_material_request(actor: User, data: dict) -> MaterialRequest:
     )
     db.session.add(req)
     db.session.flush()
+    log_activity(
+        actor=actor,
+        action=f"Submitted material request for {material.name}",
+        entity_type="project",
+        entity_id=project.id,
+        details=f"{qty} {material.unit or ''}",
+    )
     if project.project_manager_id:
         notify_user(
             user_id=project.project_manager_id,
@@ -747,6 +774,14 @@ def create_quotation(actor: User, data: dict) -> Quotation:
         created_by_id=actor.id,
     )
     db.session.add(quotation)
+    db.session.flush()
+    log_activity(
+        actor=actor,
+        action=f"Recorded quotation from {supplier.name}",
+        entity_type="project",
+        entity_id=project.id,
+        details=f"{material.name} · K{float(quotation.total_price):,.2f}",
+    )
     db.session.commit()
     return quotation
 
@@ -766,6 +801,13 @@ def select_quotation(actor: User, quotation_id: int) -> Quotation:
     ).all()
     for peer in peers:
         peer.is_selected = peer.id == quotation.id
+    log_activity(
+        actor=actor,
+        action="Selected preferred quotation",
+        entity_type="project",
+        entity_id=quotation.project_id,
+        details=f"Quotation #{quotation.id}",
+    )
     db.session.commit()
     return quotation
 
@@ -792,6 +834,14 @@ def create_purchase_order_from_quotation(actor: User, quotation_id: int, expecte
         created_by_id=actor.id,
     )
     db.session.add(po)
+    db.session.flush()
+    log_activity(
+        actor=actor,
+        action=f"Created purchase order #{po.id}",
+        entity_type="project",
+        entity_id=po.project_id,
+        details=f"Qty {float(po.quantity or 0)}",
+    )
     db.session.commit()
     return po
 

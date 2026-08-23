@@ -1,9 +1,12 @@
+import { Link } from 'react-router-dom'
+
 type TopbarProps = {
   breadcrumb: string
   title: string
   onMenuClick: () => void
   userName?: string
   userRole?: string
+  unreadCount?: number
   onLogout?: () => void
   loggingOut?: boolean
 }
@@ -14,6 +17,7 @@ export function Topbar({
   onMenuClick,
   userName,
   userRole,
+  unreadCount = 0,
   onLogout,
   loggingOut,
 }: TopbarProps) {
@@ -36,6 +40,19 @@ export function Topbar({
       </div>
 
       <div className="topbar-right">
+        <Link
+          to="/notifications"
+          className="icon-btn topbar-notify"
+          aria-label={
+            unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'
+          }
+          title="Notifications"
+        >
+          <i className="bi bi-bell" aria-hidden="true" />
+          {unreadCount > 0 ? (
+            <span className="topbar-notify__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+          ) : null}
+        </Link>
         {userName ? (
           <>
             <span className="status-chip" title={userRole}>

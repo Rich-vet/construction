@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react'
 import { Alert, Badge, Button, Spinner } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
+import { useAuth } from '../../context/AuthContext'
 import { ApiError } from '../../api/auth'
 import {
   fetchNotifications,
+  markAllNotificationsRead,
   markNotificationRead,
   type NotificationItem,
-} from '../../api/admin'
+} from '../../api/notifications'
 
 export function NotificationsPage() {
+  const { user } = useAuth()
   const [items, setItems] = useState<NotificationItem[]>([])
   const [unread, setUnread] = useState(0)
   const [page, setPage] = useState(1)
@@ -17,6 +20,7 @@ export function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [markingAll, setMarkingAll] = useState(false)
 
   const load = (nextPage = 1) => {
     setLoading(true)
@@ -27,6 +31,11 @@ export function NotificationsPage() {
         setUnread(data.unread_count)
         setPage(data.page)
         setPages(data.pages)
+        window.dispatchEvent(
+          new CustomEvent('ccms:notifications-changed', {
+            detail: { unread_count: data.unread_count },
+          }),
+        )
       })
       .catch((err: unknown) =>
         setError(err instanceof ApiError ? err.message : 'Unable to load notifications.'),
@@ -50,11 +59,52 @@ export function NotificationsPage() {
     }
   }
 
+  const markAll = async () => {
+    setMarkingAll(true)
+    try {
+      await markAllNotificationsRead()
+      load(1)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Unable to mark all as read.')
+    } finally {
+      setMarkingAll(false)
+    }
+  }
+
+  const openRelated = async (note: NotificationItem) => {
+    if (!note.is_read) {
+      try {
+        await markNotificationRead(note.id)
+        window.dispatchEvent(
+          new CustomEvent('ccms:notifications-changed', { detail: { unread_count: Math.max(unread - 1, 0) } }),
+        )
+      } catch {
+        /* navigation still allowed */
+      }
+    }
+  }
+
   return (
-    <AppShell breadcrumb="System / Notifications" title="Notifications" phaseLabel="Admin">
-      <p className="text-muted mb-3">
-        Unread: <strong>{unread}</strong>
-      </p>
+    <AppShell
+      breadcrumb="System / Notifications"
+      title="Notifications"
+      phaseLabel={user?.role === 'Administrator' ? 'Admin' : user?.role?.split('/')[0] || 'App'}
+    >
+      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <p className="text-muted mb-0">
+          Unread: <strong>{unread}</strong>
+        </p>
+        {unread > 0 ? (
+          <Button
+            size="sm"
+            variant="outline-secondary"
+            disabled={markingAll}
+            onClick={() => void markAll()}
+          >
+            {markingAll ? 'Updating…' : 'Mark all read'}
+          </Button>
+        ) : null}
+      </div>
       {error ? <Alert variant="danger">{error}</Alert> : null}
       {loading ? (
         <div className="loading-state">
@@ -75,9 +125,15 @@ export function NotificationsPage() {
                     {!note.is_read ? <Badge bg="warning text-dark">Unread</Badge> : null}
                   </div>
                   <p className="mb-1">{note.message}</p>
-                  <div className="small text-muted">{note.created_at}</div>
+                  <div className="small text-muted">
+                    {note.created_at ? new Date(note.created_at).toLocaleString() : '—'}
+                  </div>
                   {note.link ? (
-                    <Link to={note.link} className="small">
+                    <Link
+                      to={note.link}
+                      className="small"
+                      onClick={() => void openRelated(note)}
+                    >
                       Open related record
                     </Link>
                   ) : null}

@@ -56,6 +56,7 @@ def _register_blueprints(app: Flask) -> None:
     from app.routes.site import site_bp
     from app.routes.worker import worker_bp
     from app.routes.reports import reports_bp
+    from app.routes.notifications import notifications_bp
 
     app.register_blueprint(main_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
@@ -64,6 +65,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(site_bp, url_prefix="/api/site")
     app.register_blueprint(worker_bp, url_prefix="/api/worker")
     app.register_blueprint(reports_bp, url_prefix="/api/reports")
+    app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
 
 
 def _register_error_handlers(app: Flask) -> None:

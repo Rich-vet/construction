@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { fetchUnreadCount } from '../../api/notifications'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
@@ -16,6 +17,7 @@ export function AppShell({ breadcrumb, title, phaseLabel, children }: AppShellPr
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -40,6 +42,39 @@ export function AppShell({ breadcrumb, title, phaseLabel, children }: AppShellPr
       document.body.style.overflow = ''
     }
   }, [sidebarOpen])
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0)
+      return
+    }
+    let cancelled = false
+    const refresh = () => {
+      fetchUnreadCount()
+        .then((data) => {
+          if (!cancelled) setUnreadCount(data.unread_count)
+        })
+        .catch(() => {
+          /* ignore badge errors */
+        })
+    }
+    refresh()
+    const onChanged = (event: Event) => {
+      const custom = event as CustomEvent<{ unread_count?: number }>
+      if (typeof custom.detail?.unread_count === 'number') {
+        setUnreadCount(custom.detail.unread_count)
+      } else {
+        refresh()
+      }
+    }
+    window.addEventListener('ccms:notifications-changed', onChanged)
+    const timer = window.setInterval(refresh, 60000)
+    return () => {
+      cancelled = true
+      window.removeEventListener('ccms:notifications-changed', onChanged)
+      window.clearInterval(timer)
+    }
+  }, [user])
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -70,6 +105,7 @@ export function AppShell({ breadcrumb, title, phaseLabel, children }: AppShellPr
             onMenuClick={() => setSidebarOpen(true)}
             userName={user?.full_name}
             userRole={user?.role}
+            unreadCount={unreadCount}
             onLogout={handleLogout}
             loggingOut={loggingOut}
           />
