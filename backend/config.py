@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -31,6 +32,13 @@ def _cors_origins() -> list[str]:
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class Config:
     """Base configuration shared across environments."""
 
@@ -51,19 +59,25 @@ class Config:
 
     CORS_ORIGINS = _cors_origins()
 
-    # Cookie sessions for the React SPA (same-site localhost in development).
+    # Cookie sessions for the React SPA.
     WTF_CSRF_ENABLED = True
-    WTF_CSRF_CHECK_DEFAULT = False  # Enable per-view for mutating auth routes later
+    WTF_CSRF_CHECK_DEFAULT = False
+    WTF_CSRF_HEADERS = ["X-CSRFToken", "X-CSRF-Token"]
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_NAME = "ccms_session"
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=12)
     REMEMBER_COOKIE_HTTPONLY = True
+
+    # When true, forgot-password responses include the raw token (dev only).
+    DEV_EXPOSE_PASSWORD_RESET_TOKEN = _env_bool("DEV_EXPOSE_PASSWORD_RESET_TOKEN", True)
 
 
 class DevelopmentConfig(Config):
     """Local development settings."""
 
     DEBUG = True
+    DEV_EXPOSE_PASSWORD_RESET_TOKEN = _env_bool("DEV_EXPOSE_PASSWORD_RESET_TOKEN", True)
 
 
 class ProductionConfig(Config):
@@ -71,6 +85,7 @@ class ProductionConfig(Config):
 
     DEBUG = False
     SESSION_COOKIE_SECURE = True
+    DEV_EXPOSE_PASSWORD_RESET_TOKEN = False
 
 
 class TestingConfig(Config):
@@ -79,6 +94,7 @@ class TestingConfig(Config):
     TESTING = True
     WTF_CSRF_ENABLED = False
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    DEV_EXPOSE_PASSWORD_RESET_TOKEN = True
 
 
 config_by_name = {

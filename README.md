@@ -2,7 +2,7 @@
 
 Professional internal construction company management web application.
 
-**Status:** Phase 1 — Project foundation (split API + React SPA).
+**Status:** Phase 2 — Authentication & RBAC complete.
 
 ## Architecture
 
@@ -15,7 +15,7 @@ CCMS/
 
 - **Backend:** Flask JSON API on port `5000`
 - **Frontend:** React SPA on port `5173` (proxies `/api` to Flask in development)
-- **Auth (Phase 2):** Cookie sessions + CORS credentials
+- **Auth:** Cookie sessions + CSRF + CORS credentials
 
 ## Stack
 
@@ -39,6 +39,7 @@ python -m venv .venv
 pip install -r requirements.txt
 copy .env.example .env
 flask --app run.py db upgrade
+flask --app run.py seed
 flask --app run.py run
 ```
 
@@ -54,6 +55,30 @@ npm run dev
 
 App: http://127.0.0.1:5173/
 
+## Demo accounts (development)
+
+| Email | Role | Password |
+|-------|------|----------|
+| admin@example.com | Administrator | Password123! |
+| manager@example.com | Project Manager | Password123! |
+| engineer@example.com | Site Engineer | Password123! |
+| worker@example.com | Contractor/Worker | Password123! |
+
+Replace these passwords before any real deployment.
+
+## Auth API
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/auth/csrf` | CSRF token |
+| GET | `/api/auth/me` | Current session |
+| POST | `/api/auth/login` | Sign in |
+| POST | `/api/auth/logout` | Sign out |
+| POST | `/api/auth/forgot-password` | Dev-safe reset token |
+| POST | `/api/auth/reset-password` | Apply new password |
+
+When `DEV_EXPOSE_PASSWORD_RESET_TOKEN=true`, forgot-password returns the raw token (no email required).
+
 ## Environment
 
 ### Backend (`backend/.env`)
@@ -63,6 +88,7 @@ App: http://127.0.0.1:5173/
 | `SECRET_KEY` | Session/CSRF signing |
 | `DATABASE_URL` | SQLAlchemy URI |
 | `CORS_ORIGINS` | Allowed React origins |
+| `DEV_EXPOSE_PASSWORD_RESET_TOKEN` | Include reset token in API (dev only) |
 | `APP_NAME` / `COMPANY_DISPLAY_NAME` | Branding (temporary: CCMS) |
 | `CURRENCY_CODE` / `CURRENCY_SYMBOL` | ZMW / K |
 
@@ -84,15 +110,15 @@ cd ../frontend
 npm run build
 ```
 
-## Roles (later)
+## Roles
 
 Administrator · Project Manager · Site Engineer · Contractor/Worker
 
 ## Phases
 
-1. **Foundation** — complete (this structure)
-2. Authentication & RBAC — next
-3. Administrator role
+1. Foundation — complete
+2. **Authentication & RBAC — complete**
+3. Administrator role — next
 4. Project Manager role
 5. Site Engineer role
 6. Contractor/Worker role

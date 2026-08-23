@@ -1,9 +1,6 @@
-"""SQLAlchemy models package.
-
-Phase 1: extensions only. Domain models are added in later phases.
-Import models here as they are introduced so Flask-Migrate can detect them.
-"""
+"""SQLAlchemy models package."""
 
 from app.extensions import db
+from app.models.user import PasswordResetToken, Role, User
 
-__all__ = ["db"]
+__all__ = ["db", "Role", "User", "PasswordResetToken"]

@@ -1,8 +1,9 @@
 export type NavItem = {
+  id: string
   label: string
   icon: string
   to?: string
-  disabled?: boolean
+  implemented?: boolean
 }
 
 export type NavSection = {
@@ -12,68 +13,80 @@ export type NavSection = {
 
 export const navigation: NavSection[] = [
   {
-    items: [{ label: 'Dashboard', icon: 'bi-grid-1x2', to: '/' }],
+    items: [{ id: 'dashboard', label: 'Dashboard', icon: 'bi-grid-1x2', to: '/', implemented: true }],
   },
   {
     label: 'Projects',
     items: [
-      { label: 'Projects', icon: 'bi-building', disabled: true },
-      { label: 'Tasks', icon: 'bi-list-task', disabled: true },
-      { label: 'Milestones', icon: 'bi-flag', disabled: true },
+      { id: 'projects', label: 'Projects', icon: 'bi-building' },
+      { id: 'tasks', label: 'Tasks', icon: 'bi-list-task' },
+      { id: 'milestones', label: 'Milestones', icon: 'bi-flag' },
     ],
   },
   {
     label: 'People',
     items: [
-      { label: 'Employees', icon: 'bi-people', disabled: true },
-      { label: 'Contractors', icon: 'bi-person-badge', disabled: true },
-      { label: 'Attendance', icon: 'bi-calendar-check', disabled: true },
+      { id: 'employees', label: 'Employees', icon: 'bi-people' },
+      { id: 'contractors', label: 'Contractors', icon: 'bi-person-badge' },
+      { id: 'attendance', label: 'Attendance', icon: 'bi-calendar-check' },
     ],
   },
   {
     label: 'Resources',
     items: [
-      { label: 'Materials', icon: 'bi-box-seam', disabled: true },
-      { label: 'Equipment', icon: 'bi-truck', disabled: true },
+      { id: 'materials', label: 'Materials', icon: 'bi-box-seam' },
+      { id: 'equipment', label: 'Equipment', icon: 'bi-truck' },
     ],
   },
   {
     label: 'Finance',
     items: [
-      { label: 'Budgets', icon: 'bi-wallet2', disabled: true },
-      { label: 'Expenses', icon: 'bi-cash-stack', disabled: true },
+      { id: 'budgets', label: 'Budgets', icon: 'bi-wallet2' },
+      { id: 'expenses', label: 'Expenses', icon: 'bi-cash-stack' },
     ],
   },
   {
     label: 'Procurement',
     items: [
-      { label: 'Material Requests', icon: 'bi-clipboard-check', disabled: true },
-      { label: 'Quotations', icon: 'bi-file-earmark-text', disabled: true },
-      { label: 'Purchase Orders', icon: 'bi-cart-check', disabled: true },
-      { label: 'Deliveries', icon: 'bi-box-arrow-in-down', disabled: true },
+      { id: 'material_requests', label: 'Material Requests', icon: 'bi-clipboard-check' },
+      { id: 'quotations', label: 'Quotations', icon: 'bi-file-earmark-text' },
+      { id: 'purchase_orders', label: 'Purchase Orders', icon: 'bi-cart-check' },
+      { id: 'deliveries', label: 'Deliveries', icon: 'bi-box-arrow-in-down' },
     ],
   },
   {
     label: 'Progress',
     items: [
-      { label: 'Progress Updates', icon: 'bi-graph-up-arrow', disabled: true },
-      { label: 'Site Reports', icon: 'bi-journal-text', disabled: true },
+      { id: 'progress_updates', label: 'Progress Updates', icon: 'bi-graph-up-arrow' },
+      { id: 'site_reports', label: 'Site Reports', icon: 'bi-journal-text' },
     ],
   },
   {
     label: 'Documents',
-    items: [{ label: 'Documents', icon: 'bi-folder2-open', disabled: true }],
+    items: [{ id: 'documents', label: 'Documents', icon: 'bi-folder2-open' }],
   },
   {
     label: 'Reports',
-    items: [{ label: 'Reports', icon: 'bi-bar-chart-line', disabled: true }],
+    items: [{ id: 'reports', label: 'Reports', icon: 'bi-bar-chart-line' }],
   },
   {
     label: 'System',
     items: [
-      { label: 'Notifications', icon: 'bi-bell', disabled: true },
-      { label: 'Activity Log', icon: 'bi-activity', disabled: true },
-      { label: 'Settings', icon: 'bi-gear', disabled: true },
+      { id: 'users', label: 'Users', icon: 'bi-person-gear' },
+      { id: 'company', label: 'Company', icon: 'bi-buildings' },
+      { id: 'notifications', label: 'Notifications', icon: 'bi-bell' },
+      { id: 'activity_log', label: 'Activity Log', icon: 'bi-activity' },
+      { id: 'settings', label: 'Settings', icon: 'bi-gear' },
     ],
   },
 ]
+
+export function filterNavigation(allowed: string[]): NavSection[] {
+  const allowedSet = new Set(allowed)
+  return navigation
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => allowedSet.has(item.id)),
+    }))
+    .filter((section) => section.items.length > 0)
+}

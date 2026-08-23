@@ -1,0 +1,82 @@
+"""Database seed helpers for development demo accounts."""
+
+from __future__ import annotations
+
+from sqlalchemy import select
+
+from app.extensions import db
+from app.models import Role, User
+from app.utils.roles import ALL_ROLES, ROLE_DESCRIPTIONS
+
+# Documented development passwords — change before any real deployment.
+DEMO_PASSWORD = "Password123!"
+
+DEMO_USERS = (
+    {
+        "full_name": "System Administrator",
+        "email": "admin@example.com",
+        "phone": "+260000000001",
+        "role": "Administrator",
+    },
+    {
+        "full_name": "Project Manager",
+        "email": "manager@example.com",
+        "phone": "+260000000002",
+        "role": "Project Manager",
+    },
+    {
+        "full_name": "Site Engineer",
+        "email": "engineer@example.com",
+        "phone": "+260000000003",
+        "role": "Site Engineer",
+    },
+    {
+        "full_name": "Contractor Worker",
+        "email": "worker@example.com",
+        "phone": "+260000000004",
+        "role": "Contractor/Worker",
+    },
+)
+
+
+def seed_roles() -> None:
+    for name in ALL_ROLES:
+        existing = db.session.scalar(select(Role).where(Role.name == name))
+        if existing is None:
+            db.session.add(Role(name=name, description=ROLE_DESCRIPTIONS.get(name)))
+    db.session.commit()
+
+
+def seed_demo_users() -> None:
+    seed_roles()
+    for item in DEMO_USERS:
+        role = db.session.scalar(select(Role).where(Role.name == item["role"]))
+        if role is None:
+            continue
+        user = db.session.scalar(select(User).where(User.email == item["email"]))
+        if user is None:
+            user = User(
+                full_name=item["full_name"],
+                email=item["email"],
+                phone=item["phone"],
+                role_id=role.id,
+                is_active=True,
+            )
+            user.set_password(DEMO_PASSWORD)
+            db.session.add(user)
+        else:
+            user.full_name = item["full_name"]
+            user.phone = item["phone"]
+            user.role_id = role.id
+            user.is_active = True
+            # Do not overwrite password on re-seed if user already exists.
+    db.session.commit()
+
+
+def run_seed() -> dict:
+    seed_demo_users()
+    return {
+        "roles": list(ALL_ROLES),
+        "users": [u["email"] for u in DEMO_USERS],
+        "password": DEMO_PASSWORD,
+    }

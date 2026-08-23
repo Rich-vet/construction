@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from flask import Flask, jsonify
+from flask_wtf.csrf import CSRFError
 
 from config import get_config
+from app.cli import register_cli
 from app.extensions import cors, csrf, db, migrate
 
 
@@ -17,6 +19,7 @@ def create_app(config_name: str | None = None) -> Flask:
     _register_extensions(app)
     _register_blueprints(app)
     _register_error_handlers(app)
+    register_cli(app)
 
     return app
 
@@ -46,13 +49,33 @@ def _register_extensions(app: Flask) -> None:
 
 def _register_blueprints(app: Flask) -> None:
     """Register API blueprints."""
+    from app.routes.auth import auth_bp
     from app.routes.main import main_bp
 
     app.register_blueprint(main_bp, url_prefix="/api")
+    app.register_blueprint(auth_bp, url_prefix="/api/auth")
 
 
 def _register_error_handlers(app: Flask) -> None:
     """JSON error responses (no stack traces to clients)."""
+
+    @app.errorhandler(CSRFError)
+    def csrf_error(_error):
+        return jsonify(
+            {
+                "error": "csrf_failed",
+                "message": "Security validation failed. Refresh the page and try again.",
+            }
+        ), 400
+
+    @app.errorhandler(401)
+    def unauthorized(_error):
+        return jsonify(
+            {
+                "error": "unauthorized",
+                "message": "Please log in to continue.",
+            }
+        ), 401
 
     @app.errorhandler(403)
     def forbidden(_error):

@@ -2,10 +2,21 @@ type TopbarProps = {
   breadcrumb: string
   title: string
   onMenuClick: () => void
-  authPending?: boolean
+  userName?: string
+  userRole?: string
+  onLogout?: () => void
+  loggingOut?: boolean
 }
 
-export function Topbar({ breadcrumb, title, onMenuClick, authPending = true }: TopbarProps) {
+export function Topbar({
+  breadcrumb,
+  title,
+  onMenuClick,
+  userName,
+  userRole,
+  onLogout,
+  loggingOut,
+}: TopbarProps) {
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -25,11 +36,23 @@ export function Topbar({ breadcrumb, title, onMenuClick, authPending = true }: T
       </div>
 
       <div className="topbar-right">
-        {authPending ? (
-          <span className="status-chip" title="Authentication arrives in Phase 2">
-            <i className="bi bi-shield-lock" aria-hidden="true" />
-            Auth pending
-          </span>
+        {userName ? (
+          <>
+            <span className="status-chip" title={userRole}>
+              <i className="bi bi-person-circle" aria-hidden="true" />
+              {userName}
+            </span>
+            {onLogout ? (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={onLogout}
+                disabled={loggingOut}
+              >
+                {loggingOut ? 'Signing out…' : 'Logout'}
+              </button>
+            ) : null}
+          </>
         ) : null}
       </div>
     </header>

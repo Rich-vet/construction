@@ -1,13 +1,16 @@
 import { NavLink } from 'react-router-dom'
-import { navigation } from './navigation'
+import { filterNavigation } from './navigation'
 
 type SidebarProps = {
   open: boolean
   onClose: () => void
   phaseLabel?: string
+  allowedNav: string[]
 }
 
-export function Sidebar({ open, onClose, phaseLabel = 'Phase 1' }: SidebarProps) {
+export function Sidebar({ open, onClose, phaseLabel = 'Phase 2', allowedNav }: SidebarProps) {
+  const sections = filterNavigation(allowedNav)
+
   return (
     <aside
       className={`sidebar${open ? ' is-open' : ''}`}
@@ -30,23 +33,13 @@ export function Sidebar({ open, onClose, phaseLabel = 'Phase 1' }: SidebarProps)
       </div>
 
       <nav className="sidebar-nav" aria-label="Application modules">
-        {navigation.map((section) => (
+        {sections.map((section) => (
           <div className="nav-section" key={section.label ?? 'main'}>
             {section.label ? <p className="nav-section-label">{section.label}</p> : null}
             {section.items.map((item) =>
-              item.disabled || !item.to ? (
-                <span
-                  key={item.label}
-                  className="nav-item is-disabled"
-                  title="Available in a later phase"
-                  aria-disabled="true"
-                >
-                  <i className={`bi ${item.icon}`} aria-hidden="true" />
-                  <span>{item.label}</span>
-                </span>
-              ) : (
+              item.implemented && item.to ? (
                 <NavLink
-                  key={item.label}
+                  key={item.id}
                   to={item.to}
                   className={({ isActive }) => `nav-item${isActive ? ' is-active' : ''}`}
                   onClick={onClose}
@@ -54,6 +47,16 @@ export function Sidebar({ open, onClose, phaseLabel = 'Phase 1' }: SidebarProps)
                   <i className={`bi ${item.icon}`} aria-hidden="true" />
                   <span>{item.label}</span>
                 </NavLink>
+              ) : (
+                <span
+                  key={item.id}
+                  className="nav-item is-disabled"
+                  title="Available in a later phase"
+                  aria-disabled="true"
+                >
+                  <i className={`bi ${item.icon}`} aria-hidden="true" />
+                  <span>{item.label}</span>
+                </span>
               ),
             )}
           </div>
@@ -61,7 +64,7 @@ export function Sidebar({ open, onClose, phaseLabel = 'Phase 1' }: SidebarProps)
       </nav>
 
       <div className="sidebar-footer">
-        <p className="sidebar-meta">{phaseLabel} · Foundation</p>
+        <p className="sidebar-meta">{phaseLabel} · Authentication</p>
       </div>
     </aside>
   )
