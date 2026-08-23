@@ -1,0 +1,60 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Foundation{% endblock %}
+{% block breadcrumb %}Home / Foundation{% endblock %}
+{% block page_heading %}Project Foundation{% endblock %}
+
+{% block content %}
+<section class="foundation-hero" aria-labelledby="foundation-heading">
+  <div class="foundation-hero__grid" aria-hidden="true"></div>
+  <div class="foundation-hero__content">
+    <p class="eyebrow">{{ phase_label }} complete</p>
+    <h2 id="foundation-heading" class="foundation-title">{{ company_name }} is ready to build on</h2>
+    <p class="foundation-lead">
+      The application shell, design system, configuration, and database layer are in place.
+      Authentication and role-based access arrive next.
+    </p>
+  </div>
+</section>
+
+<section class="status-grid" aria-label="Foundation status">
+  <article class="status-card" style="--delay: 0ms">
+    <div class="status-card__icon" aria-hidden="true"><i class="bi bi-building-gear"></i></div>
+    <h3 class="status-card__title">Application factory</h3>
+    <p class="status-card__text">Flask blueprints, extensions, and environment-driven config are wired.</p>
+    <span class="badge-status is-ready">Ready</span>
+  </article>
+
+  <article class="status-card" style="--delay: 60ms">
+    <div class="status-card__icon" aria-hidden="true"><i class="bi bi-database"></i></div>
+    <h3 class="status-card__title">Database layer</h3>
+    <p class="status-card__text">SQLAlchemy + Flask-Migrate configured for {{ database_backend }} via <code>DATABASE_URL</code>.</p>
+    <span class="badge-status is-ready">Ready</span>
+  </article>
+
+  <article class="status-card" style="--delay: 120ms">
+    <div class="status-card__icon" aria-hidden="true"><i class="bi bi-palette"></i></div>
+    <h3 class="status-card__title">Design system</h3>
+    <p class="status-card__text">Construction-inspired tokens, typography, layout shell, and motion rules are active.</p>
+    <span class="badge-status is-ready">Ready</span>
+  </article>
+
+  <article class="status-card" style="--delay: 180ms">
+    <div class="status-card__icon" aria-hidden="true"><i class="bi bi-shield-check"></i></div>
+    <h3 class="status-card__title">Security baseline</h3>
+    <p class="status-card__text">Secrets via environment variables, CSRF protection enabled, secure cookie defaults set.</p>
+    <span class="badge-status is-ready">Ready</span>
+  </article>
+</section>
+
+<section class="next-panel" aria-labelledby="next-heading">
+  <div>
+    <h2 id="next-heading" class="section-title">Next: Phase 2</h2>
+    <p class="section-text">Login, logout, password security, sessions, RBAC, and role-aware navigation.</p>
+  </div>
+  <p class="next-note">
+    <i class="bi bi-info-circle" aria-hidden="true"></i>
+    Sidebar modules are visible for orientation but disabled until their phases are implemented.
+  </p>
+</section>
+{% endblock %}
