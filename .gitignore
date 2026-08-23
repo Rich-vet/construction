@@ -1,11 +1,16 @@
 # Environment and secrets
 .env
+**/.env
 .venv/
 venv/
 env/
+backend/.venv/
+frontend/node_modules/
+frontend/dist/
 
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
@@ -16,11 +21,13 @@ __pycache__/
 htmlcov/
 
 # Flask / instance
-instance/
+backend/instance/
 *.db
 *.sqlite3
 
 # Uploads (keep folder, ignore contents)
+backend/uploads/*
+!backend/uploads/.gitkeep
 uploads/*
 !uploads/.gitkeep
 
@@ -33,3 +40,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Vite
+frontend/*.local

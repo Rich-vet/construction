@@ -2,104 +2,95 @@
 
 Professional internal construction company management web application.
 
-**Status:** Phase 1 — Project foundation complete. Authentication is not yet implemented.
+**Status:** Phase 1 — Project foundation (split API + React SPA).
 
-## Stack
-
-- Backend: Python Flask
-- ORM: SQLAlchemy
-- Migrations: Flask-Migrate / Alembic
-- Database: SQLite (development) → MySQL (handover)
-- Frontend: HTML5, CSS3, JavaScript, Bootstrap 5
-- Charts: Chart.js (later phases)
-
-## Project structure
+## Architecture
 
 ```text
-ccms/
-├── app/
-│   ├── __init__.py          # Application factory
-│   ├── extensions.py        # db, migrate, csrf
-│   ├── models/
-│   ├── routes/
-│   ├── services/
-│   ├── templates/
-│   ├── static/
-│   └── utils/
-├── migrations/
-├── tests/
-├── uploads/
-├── config.py
-├── run.py
-├── requirements.txt
-├── .env.example
+CCMS/
+├── backend/     # Python Flask REST API (SQLAlchemy, Migrate)
+├── frontend/    # React + TypeScript (Vite, Bootstrap 5)
 └── README.md
 ```
 
+- **Backend:** Flask JSON API on port `5000`
+- **Frontend:** React SPA on port `5173` (proxies `/api` to Flask in development)
+- **Auth (Phase 2):** Cookie sessions + CORS credentials
+
+## Stack
+
+| Layer | Technology |
+|-------|------------|
+| API | Python Flask |
+| ORM | SQLAlchemy + Flask-Migrate |
+| Database | SQLite (dev) → MySQL (handover) |
+| UI | React 19, TypeScript, Vite |
+| Styling | Bootstrap 5, React-Bootstrap, custom design system |
+
 ## Setup
 
-1. Create and activate a virtual environment:
+### Backend
 
 ```bash
+cd backend
 python -m venv .venv
 # Windows
 .venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-```
-
-2. Install dependencies:
-
-```bash
 pip install -r requirements.txt
-```
-
-3. Copy environment settings:
-
-```bash
 copy .env.example .env
-```
-
-4. Ensure `SECRET_KEY` in `.env` is unique for your machine.
-
-5. Initialize the database migrations (first time):
-
-```bash
 flask --app run.py db upgrade
-```
-
-6. Run the application:
-
-```bash
 flask --app run.py run
 ```
 
-Open http://127.0.0.1:5000/
+API health: http://127.0.0.1:5000/api/health
 
-## Environment variables
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+App: http://127.0.0.1:5173/
+
+## Environment
+
+### Backend (`backend/.env`)
 
 | Variable | Purpose |
 |----------|---------|
-| `SECRET_KEY` | Flask session/CSRF signing key |
-| `DATABASE_URL` | SQLAlchemy URI (`sqlite:///ccms.db` or MySQL) |
-| `APP_NAME` | Short product name (default: CCMS) |
-| `COMPANY_DISPLAY_NAME` | Display name (temporary until company name is finalized) |
-| `CURRENCY_CODE` | ISO currency code (default: ZMW) |
-| `CURRENCY_SYMBOL` | Display symbol (default: K) |
-| `MAX_CONTENT_LENGTH_MB` | Upload size limit |
+| `SECRET_KEY` | Session/CSRF signing |
+| `DATABASE_URL` | SQLAlchemy URI |
+| `CORS_ORIGINS` | Allowed React origins |
+| `APP_NAME` / `COMPANY_DISPLAY_NAME` | Branding (temporary: CCMS) |
+| `CURRENCY_CODE` / `CURRENCY_SYMBOL` | ZMW / K |
 
-Never commit `.env`. Use `.env.example` as the template.
+### Frontend (`frontend/.env`)
 
-## Roles (implemented later)
+| Variable | Purpose |
+|----------|---------|
+| `VITE_API_BASE_URL` | Leave empty in dev (Vite proxy). Set to API origin in production. |
 
-- Administrator
-- Project Manager
-- Site Engineer
-- Contractor/Worker
+Never commit `.env` files.
 
-## Development phases
+## Testing
 
-1. **Foundation** — complete
+```bash
+cd backend
+pytest tests/ -q
+
+cd ../frontend
+npm run build
+```
+
+## Roles (later)
+
+Administrator · Project Manager · Site Engineer · Contractor/Worker
+
+## Phases
+
+1. **Foundation** — complete (this structure)
 2. Authentication & RBAC — next
 3. Administrator role
 4. Project Manager role
@@ -110,15 +101,3 @@ Never commit `.env`. Use `.env.example` as the template.
 9. Notifications & activity logs
 10. Testing & optimization
 11. SQLite → MySQL migration
-
-## Testing
-
-```bash
-python -m pytest tests/ -q
-```
-
-## Notes
-
-- Company branding currently uses **CCMS** until a legal company name is provided.
-- Currency display defaults to Zambian Kwacha (`K` / `ZMW`) per PRD examples.
-- Sidebar modules are shown for orientation but remain disabled until their phases are built.
