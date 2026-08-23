@@ -191,6 +191,7 @@ class Document(db.Model):
     name = db.Column(db.String(200), nullable=False)
     document_type = db.Column(db.String(80), nullable=False, default="Other")
     project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=True, index=True)
+    task_id = db.Column(db.Integer, db.ForeignKey("tasks.id"), nullable=True, index=True)
     description = db.Column(db.Text, nullable=True)
     file_path = db.Column(db.String(255), nullable=False)
     original_filename = db.Column(db.String(255), nullable=True)
@@ -199,6 +200,7 @@ class Document(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     project = db.relationship("Project")
+    task = db.relationship("Task")
     uploaded_by = db.relationship("User")
 
     def to_dict(self) -> dict:
@@ -208,8 +210,10 @@ class Document(db.Model):
             "document_type": self.document_type,
             "project_id": self.project_id,
             "project_name": self.project.name if self.project else None,
+            "task_id": self.task_id,
+            "task_name": self.task.name if self.task else None,
             "description": self.description,
-            "download_url": f"/api/site/documents/{self.id}/download",
+            "download_url": f"/api/worker/documents/{self.id}/download",
             "original_filename": self.original_filename,
             "mime_type": self.mime_type,
             "uploaded_by_name": self.uploaded_by.full_name if self.uploaded_by else None,

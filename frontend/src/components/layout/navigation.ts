@@ -21,7 +21,7 @@ export const navigation: NavSection[] = [
     label: 'Projects',
     items: [
       { id: 'projects', label: 'Projects', icon: 'bi-building', to: '/projects', implemented: true },
-      { id: 'tasks', label: 'Tasks', icon: 'bi-list-task' },
+      { id: 'tasks', label: 'Tasks', icon: 'bi-list-task', to: '/tasks', implemented: true },
       { id: 'milestones', label: 'Milestones', icon: 'bi-flag' },
     ],
   },

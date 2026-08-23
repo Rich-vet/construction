@@ -15,18 +15,21 @@ import { ActivityLogPage } from './pages/admin/ActivityLogPage'
 import { NotificationsPage } from './pages/admin/NotificationsPage'
 import { SettingsPage } from './pages/admin/SettingsPage'
 import { PmDashboardPage } from './pages/pm/PmDashboardPage'
-import { ProjectsListPage } from './pages/pm/ProjectsListPage'
 import { ProjectFormPage } from './pages/pm/ProjectFormPage'
 import { ProjectDetailPage } from './pages/pm/ProjectDetailPage'
 import { MaterialRequestsPage } from './pages/pm/MaterialRequestsPage'
 import { PmReportsPage } from './pages/pm/PmReportsPage'
 import { SeDashboardPage } from './pages/se/SeDashboardPage'
-import { AttendancePage } from './pages/se/AttendancePage'
 import { MaterialsPage } from './pages/se/MaterialsPage'
 import { EquipmentPage } from './pages/se/EquipmentPage'
 import { ProgressUpdatesPage } from './pages/se/ProgressUpdatesPage'
 import { SiteReportsPage } from './pages/se/SiteReportsPage'
 import { DocumentsPage } from './pages/se/DocumentsPage'
+import { WorkerDashboardPage } from './pages/worker/WorkerDashboardPage'
+import { MyTasksPage } from './pages/worker/MyTasksPage'
+import { TaskDetailPage } from './pages/worker/TaskDetailPage'
+import { ProjectsGatePage } from './pages/worker/ProjectsGatePage'
+import { AttendanceGatePage } from './pages/worker/AttendanceGatePage'
 
 export default function App() {
   return (
@@ -55,13 +58,27 @@ export default function App() {
 
             <Route
               element={
-                <RoleRoute roles={['Administrator', 'Project Manager', 'Site Engineer']} />
+                <RoleRoute
+                  roles={[
+                    'Administrator',
+                    'Project Manager',
+                    'Site Engineer',
+                    'Contractor/Worker',
+                  ]}
+                />
               }
             >
               <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/projects" element={<ProjectsListPage />} />
+              <Route path="/projects" element={<ProjectsGatePage />} />
+              <Route path="/attendance" element={<AttendanceGatePage />} />
+            </Route>
+
+            <Route
+              element={
+                <RoleRoute roles={['Administrator', 'Project Manager', 'Site Engineer']} />
+              }
+            >
               <Route path="/material-requests" element={<MaterialRequestsPage />} />
-              <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/materials" element={<MaterialsPage />} />
               <Route path="/equipment" element={<EquipmentPage />} />
               <Route path="/progress-updates" element={<ProgressUpdatesPage />} />
@@ -86,6 +103,12 @@ export default function App() {
 
             <Route element={<RoleRoute roles={['Site Engineer', 'Administrator']} />}>
               <Route path="/se" element={<SeDashboardPage />} />
+            </Route>
+
+            <Route element={<RoleRoute roles={['Contractor/Worker', 'Administrator']} />}>
+              <Route path="/worker" element={<WorkerDashboardPage />} />
+              <Route path="/tasks" element={<MyTasksPage />} />
+              <Route path="/tasks/:id" element={<TaskDetailPage />} />
             </Route>
           </Route>
 
