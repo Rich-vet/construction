@@ -17,7 +17,7 @@ def app():
     application = create_app("testing")
     with application.app_context():
         db.create_all()
-        run_seed()
+        run_seed(with_demo_scenario=False)
         project_service.ensure_demo_materials()
         site_service.ensure_demo_equipment()
         yield application

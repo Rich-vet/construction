@@ -14,7 +14,7 @@ def app():
     application = create_app("testing")
     with application.app_context():
         db.create_all()
-        run_seed()
+        run_seed(with_demo_scenario=False)
         yield application
         db.session.remove()
         db.drop_all()

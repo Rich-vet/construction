@@ -2,7 +2,7 @@
 
 Professional internal construction company management web application.
 
-**Status:** Phase 4 — Project Manager role complete.
+**Status:** Complete — all PRD phases implemented (SQLite default; MySQL via `DATABASE_URL`).
 
 ## Architecture
 
@@ -23,7 +23,7 @@ CCMS/
 |-------|------------|
 | API | Python Flask |
 | ORM | SQLAlchemy + Flask-Migrate |
-| Database | SQLite (dev) → MySQL (handover) |
+| Database | SQLite (dev) → MySQL (handover via `DATABASE_URL`) |
 | UI | React 19, TypeScript, Vite |
 | Styling | Bootstrap 5, React-Bootstrap, custom design system |
 
@@ -64,7 +64,9 @@ App: http://127.0.0.1:5173/
 | engineer@example.com | Site Engineer | Password123! |
 | worker@example.com | Contractor/Worker | Password123! |
 
-Replace these passwords before any real deployment.
+`flask --app run.py seed` also creates **Demo Civic Block** (Active project with team, tasks, milestones, budgets, expenses, and notifications). Use `--no-scenario` to skip it.
+
+Replace demo passwords before any real deployment.
 
 ## Auth API
 
@@ -86,7 +88,7 @@ When `DEV_EXPOSE_PASSWORD_RESET_TOKEN=true`, forgot-password returns the raw tok
 | Variable | Purpose |
 |----------|---------|
 | `SECRET_KEY` | Session/CSRF signing |
-| `DATABASE_URL` | SQLAlchemy URI |
+| `DATABASE_URL` | SQLAlchemy URI (SQLite or MySQL) |
 | `CORS_ORIGINS` | Allowed React origins |
 | `DEV_EXPOSE_PASSWORD_RESET_TOKEN` | Include reset token in API (dev only) |
 | `APP_NAME` / `COMPANY_DISPLAY_NAME` | Branding (temporary: CCMS) |
@@ -106,9 +108,46 @@ Never commit `.env` files.
 cd backend
 pytest tests/ -q
 
+# Optional live MySQL suite (requires a reachable MySQL/MariaDB database):
+# set CCMS_MYSQL_URL=mysql+pymysql://user:pass@127.0.0.1:3306/ccms?charset=utf8mb4
+# pytest tests/test_mysql.py -m mysql -q
+
 cd ../frontend
 npm run build
 ```
+
+Coverage includes authentication/RBAC, admin, projects/procurement, site ops, worker tasks, cross-role inventory linkage, reports, notifications, finance (budget vs actual), progress/milestones, and MySQL dialect DDL compile checks.
+
+## SQLite → MySQL handover
+
+Business logic does not change — only `DATABASE_URL`.
+
+1. Create an empty MySQL/MariaDB database (utf8mb4), e.g. `ccms`.
+2. Install client driver (already in `requirements.txt`: `PyMySQL`).
+3. Set in `backend/.env`:
+
+```env
+DATABASE_URL=mysql+pymysql://USER:PASSWORD@127.0.0.1:3306/ccms?charset=utf8mb4
+```
+
+Helper template:
+
+```bash
+flask --app run.py print-mysql-uri
+```
+
+4. Apply schema and seed:
+
+```bash
+flask --app run.py db upgrade
+flask --app run.py seed
+flask --app run.py verify-db
+```
+
+5. Re-run the API test suite against SQLite memory (default), then optionally the live MySQL marker above.
+6. Start the API and React app as usual; confirm login, project CRUD, reports, uploads, and RBAC.
+
+To migrate existing SQLite *data* (optional for school demos), export/import manually or re-seed — schema is identical via Alembic.
 
 ## Roles
 
@@ -116,14 +155,14 @@ Administrator · Project Manager · Site Engineer · Contractor/Worker
 
 ## Phases
 
-1. Foundation — complete
-2. Authentication & RBAC — complete
-3. Administrator role — complete
-4. **Project Manager role — complete**
-5. Site Engineer role — next
-6. Contractor/Worker role
-7. Cross-role workflows
-8. Reports
-9. Notifications & activity logs
-10. Testing & optimization
-11. SQLite → MySQL migration
+1. Foundation — complete  
+2. Authentication & RBAC — complete  
+3. Administrator role — complete  
+4. Project Manager role — complete  
+5. Site Engineer role — complete  
+6. Contractor/Worker role — complete  
+7. Cross-role workflows — complete  
+8. Reports — complete  
+9. Notifications & activity logs — complete  
+10. Testing & optimization — complete  
+11. SQLite → MySQL migration path — complete (switch via `DATABASE_URL`)

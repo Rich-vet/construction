@@ -93,14 +93,24 @@ def seed_company_profile() -> None:
         db.session.commit()
 
 
-def run_seed() -> dict:
+def run_seed(*, with_demo_scenario: bool = True) -> dict:
     seed_demo_users()
     seed_company_profile()
     from app.services.project_service import ensure_demo_materials
+    from app.services.site_service import ensure_demo_equipment
 
     ensure_demo_materials()
+    ensure_demo_equipment()
+
+    scenario = None
+    if with_demo_scenario:
+        from app.seed_demo import seed_demo_scenario
+
+        scenario = seed_demo_scenario()
+
     return {
         "roles": list(ALL_ROLES),
         "users": [u["email"] for u in DEMO_USERS],
         "password": DEMO_PASSWORD,
+        "demo_project": scenario,
     }
