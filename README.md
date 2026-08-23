@@ -102,6 +102,15 @@ When `DEV_EXPOSE_PASSWORD_RESET_TOKEN=true`, forgot-password returns the raw tok
 
 Never commit `.env` files.
 
+## Demo walkthrough
+
+```bash
+cd backend
+python scripts/demo_walkthrough.py
+```
+
+Exercises login and core endpoints for all four roles against the seeded Demo Civic Block (expects development SQLite DB).
+
 ## Testing
 
 ```bash
