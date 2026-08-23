@@ -1,8 +1,13 @@
-import { AppShell } from '../components/layout/AppShell'
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { AppShell } from '../components/layout/AppShell'
 
 export function HomePage() {
   const { user, navigation } = useAuth()
+
+  if (user?.role === 'Administrator') {
+    return <Navigate to="/admin" replace />
+  }
 
   return (
     <AppShell breadcrumb="Home / Dashboard" title="Dashboard" phaseLabel="Phase 2">
@@ -14,9 +19,9 @@ export function HomePage() {
             Welcome, {user?.full_name}
           </h2>
           <p className="foundation-lead">
-            You are signed in as <strong>{user?.role}</strong>. Role-specific dashboards and
-            modules will be enabled in the next development phases. Only menu items allowed for
-            your role are shown.
+            You are signed in as <strong>{user?.role}</strong>. Your role-specific dashboard and
+            modules will be enabled in upcoming phases. Only menu items allowed for your role are
+            shown.
           </p>
         </div>
       </section>
@@ -46,21 +51,9 @@ export function HomePage() {
           </div>
           <h3 className="status-card__title">Authorized modules</h3>
           <p className="status-card__text">
-            {navigation.length} navigation areas visible for this role (most still pending
-            implementation).
+            {navigation.length} navigation areas visible for this role.
           </p>
           <span className="badge-status is-ready">{navigation.length}</span>
-        </article>
-
-        <article className="status-card" style={{ ['--delay' as string]: '180ms' }}>
-          <div className="status-card__icon" aria-hidden="true">
-            <i className="bi bi-signpost-2" />
-          </div>
-          <h3 className="status-card__title">Next phase</h3>
-          <p className="status-card__text">
-            Administrator role pages: users, company profile, and system monitoring.
-          </p>
-          <span className="badge-status is-ready">Queued</span>
         </article>
       </section>
     </AppShell>

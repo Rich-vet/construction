@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { filterNavigation } from './navigation'
 
 type SidebarProps = {
@@ -10,6 +10,7 @@ type SidebarProps = {
 
 export function Sidebar({ open, onClose, phaseLabel = 'Phase 2', allowedNav }: SidebarProps) {
   const sections = filterNavigation(allowedNav)
+  const location = useLocation()
 
   return (
     <aside
@@ -41,8 +42,14 @@ export function Sidebar({ open, onClose, phaseLabel = 'Phase 2', allowedNav }: S
                 <NavLink
                   key={item.id}
                   to={item.to}
-                  className={({ isActive }) => `nav-item${isActive ? ' is-active' : ''}`}
+                  className={({ isActive }) => {
+                    const dashboardActive =
+                      item.id === 'dashboard' &&
+                      (location.pathname === '/' || location.pathname === '/admin')
+                    return `nav-item${isActive || dashboardActive ? ' is-active' : ''}`
+                  }}
                   onClick={onClose}
+                  end={item.to === '/'}
                 >
                   <i className={`bi ${item.icon}`} aria-hidden="true" />
                   <span>{item.label}</span>
@@ -64,7 +71,7 @@ export function Sidebar({ open, onClose, phaseLabel = 'Phase 2', allowedNav }: S
       </nav>
 
       <div className="sidebar-footer">
-        <p className="sidebar-meta">{phaseLabel} · Authentication</p>
+        <p className="sidebar-meta">{phaseLabel}</p>
       </div>
     </aside>
   )

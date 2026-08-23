@@ -13,7 +13,9 @@ export type NavSection = {
 
 export const navigation: NavSection[] = [
   {
-    items: [{ id: 'dashboard', label: 'Dashboard', icon: 'bi-grid-1x2', to: '/', implemented: true }],
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: 'bi-grid-1x2', to: '/', implemented: true },
+    ],
   },
   {
     label: 'Projects',
@@ -72,11 +74,23 @@ export const navigation: NavSection[] = [
   {
     label: 'System',
     items: [
-      { id: 'users', label: 'Users', icon: 'bi-person-gear' },
-      { id: 'company', label: 'Company', icon: 'bi-buildings' },
-      { id: 'notifications', label: 'Notifications', icon: 'bi-bell' },
-      { id: 'activity_log', label: 'Activity Log', icon: 'bi-activity' },
-      { id: 'settings', label: 'Settings', icon: 'bi-gear' },
+      { id: 'users', label: 'Users', icon: 'bi-person-gear', to: '/users', implemented: true },
+      { id: 'company', label: 'Company', icon: 'bi-buildings', to: '/company', implemented: true },
+      {
+        id: 'notifications',
+        label: 'Notifications',
+        icon: 'bi-bell',
+        to: '/notifications',
+        implemented: true,
+      },
+      {
+        id: 'activity_log',
+        label: 'Activity Log',
+        icon: 'bi-activity',
+        to: '/activity-log',
+        implemented: true,
+      },
+      { id: 'settings', label: 'Settings', icon: 'bi-gear', to: '/settings', implemented: true },
     ],
   },
 ]

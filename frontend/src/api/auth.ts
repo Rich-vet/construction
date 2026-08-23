@@ -51,6 +51,7 @@ type RequestOptions = {
   method?: string
   body?: unknown
   csrf?: boolean
+  formData?: FormData
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -59,8 +60,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     Accept: 'application/json',
   }
 
-  if (options.body !== undefined) {
+  let body: BodyInit | undefined
+  if (options.formData) {
+    body = options.formData
+  } else if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json'
+    body = JSON.stringify(options.body)
   }
 
   if (options.csrf || (method !== 'GET' && method !== 'HEAD')) {
@@ -72,7 +77,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     method,
     credentials: 'include',
     headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body,
   })
 
   if (!response.ok) {

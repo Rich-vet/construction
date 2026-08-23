@@ -73,8 +73,29 @@ def seed_demo_users() -> None:
     db.session.commit()
 
 
+def seed_company_profile() -> None:
+    from flask import current_app
+
+    from app.models import CompanyProfile
+
+    existing = db.session.scalar(select(CompanyProfile).order_by(CompanyProfile.id).limit(1))
+    if existing is None:
+        db.session.add(
+            CompanyProfile(
+                name=current_app.config.get("COMPANY_DISPLAY_NAME", "CCMS"),
+                description="Demo construction company profile for CCMS.",
+                phone="+260211000000",
+                email="info@example.com",
+                address="Lusaka, Zambia",
+                registration_info="PACRA DEMO-0001",
+            )
+        )
+        db.session.commit()
+
+
 def run_seed() -> dict:
     seed_demo_users()
+    seed_company_profile()
     return {
         "roles": list(ALL_ROLES),
         "users": [u["email"] for u in DEMO_USERS],

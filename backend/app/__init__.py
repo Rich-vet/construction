@@ -50,10 +50,12 @@ def _register_extensions(app: Flask) -> None:
 def _register_blueprints(app: Flask) -> None:
     """Register API blueprints."""
     from app.routes.auth import auth_bp
+    from app.routes.admin import admin_bp
     from app.routes.main import main_bp
 
     app.register_blueprint(main_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(admin_bp, url_prefix="/api/admin")
 
 
 def _register_error_handlers(app: Flask) -> None:
