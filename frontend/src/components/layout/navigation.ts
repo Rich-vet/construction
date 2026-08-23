@@ -20,7 +20,7 @@ export const navigation: NavSection[] = [
   {
     label: 'Projects',
     items: [
-      { id: 'projects', label: 'Projects', icon: 'bi-building' },
+      { id: 'projects', label: 'Projects', icon: 'bi-building', to: '/projects', implemented: true },
       { id: 'tasks', label: 'Tasks', icon: 'bi-list-task' },
       { id: 'milestones', label: 'Milestones', icon: 'bi-flag' },
     ],
@@ -50,7 +50,13 @@ export const navigation: NavSection[] = [
   {
     label: 'Procurement',
     items: [
-      { id: 'material_requests', label: 'Material Requests', icon: 'bi-clipboard-check' },
+      {
+        id: 'material_requests',
+        label: 'Material Requests',
+        icon: 'bi-clipboard-check',
+        to: '/material-requests',
+        implemented: true,
+      },
       { id: 'quotations', label: 'Quotations', icon: 'bi-file-earmark-text' },
       { id: 'purchase_orders', label: 'Purchase Orders', icon: 'bi-cart-check' },
       { id: 'deliveries', label: 'Deliveries', icon: 'bi-box-arrow-in-down' },
@@ -69,7 +75,9 @@ export const navigation: NavSection[] = [
   },
   {
     label: 'Reports',
-    items: [{ id: 'reports', label: 'Reports', icon: 'bi-bar-chart-line' }],
+    items: [
+      { id: 'reports', label: 'Reports', icon: 'bi-bar-chart-line', to: '/reports', implemented: true },
+    ],
   },
   {
     label: 'System',

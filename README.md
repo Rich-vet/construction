@@ -2,7 +2,7 @@
 
 Professional internal construction company management web application.
 
-**Status:** Phase 3 — Administrator role complete.
+**Status:** Phase 4 — Project Manager role complete.
 
 ## Architecture
 
@@ -118,9 +118,9 @@ Administrator · Project Manager · Site Engineer · Contractor/Worker
 
 1. Foundation — complete
 2. Authentication & RBAC — complete
-3. **Administrator role — complete**
-4. Project Manager role — next
-5. Site Engineer role
+3. Administrator role — complete
+4. **Project Manager role — complete**
+5. Site Engineer role — next
 6. Contractor/Worker role
 7. Cross-role workflows
 8. Reports

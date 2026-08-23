@@ -96,6 +96,9 @@ def seed_company_profile() -> None:
 def run_seed() -> dict:
     seed_demo_users()
     seed_company_profile()
+    from app.services.project_service import ensure_demo_materials
+
+    ensure_demo_materials()
     return {
         "roles": list(ALL_ROLES),
         "users": [u["email"] for u in DEMO_USERS],

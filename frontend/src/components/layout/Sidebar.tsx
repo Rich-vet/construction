@@ -45,7 +45,9 @@ export function Sidebar({ open, onClose, phaseLabel = 'Phase 2', allowedNav }: S
                   className={({ isActive }) => {
                     const dashboardActive =
                       item.id === 'dashboard' &&
-                      (location.pathname === '/' || location.pathname === '/admin')
+                      (location.pathname === '/' ||
+                        location.pathname === '/admin' ||
+                        location.pathname === '/pm')
                     return `nav-item${isActive || dashboardActive ? ' is-active' : ''}`
                   }}
                   onClick={onClose}

@@ -9,6 +9,10 @@ export function HomePage() {
     return <Navigate to="/admin" replace />
   }
 
+  if (user?.role === 'Project Manager') {
+    return <Navigate to="/pm" replace />
+  }
+
   return (
     <AppShell breadcrumb="Home / Dashboard" title="Dashboard" phaseLabel="Phase 2">
       <section className="foundation-hero" aria-labelledby="welcome-heading">

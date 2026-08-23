@@ -14,6 +14,12 @@ import { CompanyProfilePage } from './pages/admin/CompanyProfilePage'
 import { ActivityLogPage } from './pages/admin/ActivityLogPage'
 import { NotificationsPage } from './pages/admin/NotificationsPage'
 import { SettingsPage } from './pages/admin/SettingsPage'
+import { PmDashboardPage } from './pages/pm/PmDashboardPage'
+import { ProjectsListPage } from './pages/pm/ProjectsListPage'
+import { ProjectFormPage } from './pages/pm/ProjectFormPage'
+import { ProjectDetailPage } from './pages/pm/ProjectDetailPage'
+import { MaterialRequestsPage } from './pages/pm/MaterialRequestsPage'
+import { PmReportsPage } from './pages/pm/PmReportsPage'
 
 export default function App() {
   return (
@@ -39,6 +45,16 @@ export default function App() {
               <Route path="/activity-log" element={<ActivityLogPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+
+            <Route element={<RoleRoute roles={['Administrator', 'Project Manager']} />}>
+              <Route path="/pm" element={<PmDashboardPage />} />
+              <Route path="/projects" element={<ProjectsListPage />} />
+              <Route path="/projects/create" element={<ProjectFormPage mode="create" />} />
+              <Route path="/projects/:id" element={<ProjectDetailPage />} />
+              <Route path="/projects/:id/edit" element={<ProjectFormPage mode="edit" />} />
+              <Route path="/material-requests" element={<MaterialRequestsPage />} />
+              <Route path="/reports" element={<PmReportsPage />} />
             </Route>
           </Route>
 
