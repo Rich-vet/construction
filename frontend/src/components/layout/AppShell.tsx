@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { fetchUnreadCount } from '../../api/notifications'
 import { Sidebar } from './Sidebar'
@@ -15,6 +15,7 @@ type AppShellProps = {
 export function AppShell({ breadcrumb, title, phaseLabel, children }: AppShellProps) {
   const { user, navigation, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -109,7 +110,12 @@ export function AppShell({ breadcrumb, title, phaseLabel, children }: AppShellPr
             onLogout={handleLogout}
             loggingOut={loggingOut}
           />
-          <main id="main-content" className="app-content" tabIndex={-1}>
+          <main
+            id="main-content"
+            key={location.pathname}
+            className="app-content motion-page"
+            tabIndex={-1}
+          >
             {children}
           </main>
         </div>
