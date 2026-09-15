@@ -1,12 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { filterNavigation } from './navigation'
+import { useAuth } from '../../context/AuthContext'
 
 type SidebarProps = {
   open: boolean
   onClose: () => void
   phaseLabel?: string
   allowedNav: string[]
-  onLogout?: () => void
+  onLogout?: () => void | Promise<void>
   loggingOut?: boolean
   unreadCount?: number
 }
@@ -19,8 +20,16 @@ export function Sidebar({
   loggingOut,
   unreadCount = 0,
 }: SidebarProps) {
+  const { user } = useAuth()
   const sections = filterNavigation(allowedNav)
   const location = useLocation()
+
+  const initials = (user?.full_name || 'U')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
 
   return (
     <aside
@@ -33,7 +42,10 @@ export function Sidebar({
           <span className="brand-mark" aria-hidden="true">
             <img src="/logo-mark.svg" alt="" width={32} height={32} />
           </span>
-          <span className="brand-text">CCMS</span>
+          <span className="brand-text-wrap">
+            <span className="brand-text">CCMS</span>
+            <span className="brand-sub">Construction Management</span>
+          </span>
         </NavLink>
         <button
           type="button"
@@ -44,6 +56,18 @@ export function Sidebar({
           <i className="bi bi-x-lg" aria-hidden="true" />
         </button>
       </div>
+
+      {user ? (
+        <div className="sidebar-user">
+          <span className="sidebar-user__avatar" aria-hidden="true">
+            {initials}
+          </span>
+          <span className="sidebar-user__meta">
+            <span className="sidebar-user__name">{user.full_name}</span>
+            <span className="sidebar-user__role">{user.role}</span>
+          </span>
+        </div>
+      ) : null}
 
       <nav className="sidebar-nav" aria-label="Application modules">
         {sections.map((section) => (
@@ -58,7 +82,9 @@ export function Sidebar({
                       item.id === 'dashboard' &&
                       (location.pathname === '/' ||
                         location.pathname === '/admin' ||
-                        location.pathname === '/pm')
+                        location.pathname === '/pm' ||
+                        location.pathname === '/se' ||
+                        location.pathname === '/worker')
                     return `nav-item${isActive || dashboardActive ? ' is-active' : ''}`
                   }}
                   onClick={onClose}
@@ -91,10 +117,12 @@ export function Sidebar({
           <button
             type="button"
             className="nav-item sidebar-logout"
-            onClick={onLogout}
+            onClick={() => {
+              void onLogout()
+            }}
             disabled={loggingOut}
           >
-            <i className="bi bi-box-arrow-left" aria-hidden="true" />
+            <i className="bi bi-box-arrow-right" aria-hidden="true" />
             <span>{loggingOut ? 'Signing out…' : 'Logout'}</span>
           </button>
         ) : null}

@@ -117,10 +117,13 @@ export function login(email: string, password: string): Promise<LoginResponse> {
 }
 
 export function logout(): Promise<{ message: string }> {
-  return apiRequest<{ message: string }>('/api/auth/logout', {
-    method: 'POST',
-    csrf: true,
-  })
+  // Always refresh CSRF before mutating auth — stale tokens are a common logout failure.
+  return ensureCsrf().then(() =>
+    apiRequest<{ message: string }>('/api/auth/logout', {
+      method: 'POST',
+      csrf: true,
+    }),
+  )
 }
 
 export function forgotPassword(email: string): Promise<{

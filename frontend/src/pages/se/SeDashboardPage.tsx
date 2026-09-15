@@ -6,7 +6,6 @@ import {
   MetricCard,
   PageHero,
   ProgressBar,
-  PromoCard,
   QuickActions,
   StatusPill,
   formatLongDate,
@@ -44,33 +43,71 @@ export function SeDashboardPage() {
         <>
           <PageHero
             title={greetingForNow(user?.full_name || 'Engineer')}
-            subtitle={formatLongDate()}
+            subtitle={`Site Engineer · ${formatLongDate()}`}
           />
 
-          <section className="metric-grid" aria-label="Site engineer statistics">
-            <MetricCard label="Assigned Projects" value={data.cards.assigned_projects} icon="bi-building" tone="blue" />
-            <MetricCard label="Active" value={data.cards.active_projects} icon="bi-hammer" tone="amber" />
-            <MetricCard label="Today's Tasks" value={data.cards.today_tasks} icon="bi-list-task" tone="slate" />
-            <MetricCard label="Workers On Site" value={data.cards.workers_on_site} icon="bi-people" tone="green" />
+          <section className="metric-grid metric-grid--4" aria-label="Site engineer statistics">
             <MetricCard
-              label="Pending Requests"
-              value={data.cards.pending_material_requests}
-              icon="bi-clipboard-check"
+              label="My Projects"
+              value={data.cards.assigned_projects}
+              icon="bi-building"
+              tone="blue"
+            />
+            <MetricCard
+              label="Active Tasks"
+              value={data.cards.today_tasks}
+              icon="bi-list-task"
               tone="amber"
             />
-            <MetricCard label="Equipment On Site" value={data.cards.equipment_on_site} icon="bi-truck" tone="blue" />
             <MetricCard
-              label="Low Stock"
+              label="Attendance Today"
+              value={data.cards.workers_on_site}
+              icon="bi-people"
+              tone="green"
+            />
+            <MetricCard
+              label="Low Stock Alerts"
               value={data.cards.low_stock_materials}
               icon="bi-exclamation-triangle"
               tone="red"
             />
           </section>
 
-          <div className="dash-layout">
-            <section className="panel-card dash-span-2">
+          <div className="dash-layout dash-layout--se">
+            <section className="panel-card">
               <div className="panel-card__head">
-                <h2 className="panel-title">Assigned projects</h2>
+                <h2 className="panel-title">Today&apos;s Tasks</h2>
+                <Link to="/progress-updates">Progress</Link>
+              </div>
+              {data.today_tasks.length === 0 ? (
+                <p className="empty-hint">No tasks due today.</p>
+              ) : (
+                <Table responsive className="mb-0 data-table">
+                  <thead>
+                    <tr>
+                      <th>Task</th>
+                      <th>Project</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.today_tasks.map((t) => (
+                      <tr key={String(t.id)}>
+                        <td className="fw-semibold">{String(t.name)}</td>
+                        <td>{String(t.project_name)}</td>
+                        <td>
+                          <StatusPill status={String(t.status)} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </section>
+
+            <section className="panel-card">
+              <div className="panel-card__head">
+                <h2 className="panel-title">My Projects</h2>
                 <Link to="/projects">View all</Link>
               </div>
               {data.projects.length === 0 ? (
@@ -96,49 +133,49 @@ export function SeDashboardPage() {
               )}
             </section>
 
-            <section className="panel-card">
-              <div className="panel-card__head">
-                <h2 className="panel-title">Today&apos;s tasks</h2>
-                <Link to="/attendance">Attendance</Link>
-              </div>
-              {data.today_tasks.length === 0 ? (
-                <p className="empty-hint">No tasks due today.</p>
-              ) : (
-                <Table responsive size="sm" className="mb-0 data-table">
-                  <thead>
-                    <tr>
-                      <th>Task</th>
-                      <th>Project</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.today_tasks.map((t) => (
-                      <tr key={String(t.id)}>
-                        <td>{String(t.name)}</td>
-                        <td>{String(t.project_name)}</td>
-                        <td>
-                          <StatusPill status={String(t.status)} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
-            </section>
-
             <aside className="dash-aside">
-              <PromoCard title="Keep sites safe, stocked, and on schedule." />
               <div className="panel-card">
                 <QuickActions
                   items={[
                     { label: 'Record Attendance', to: '/attendance', icon: 'bi-calendar-check' },
-                    { label: 'Materials', to: '/materials', icon: 'bi-box-seam' },
+                    { label: 'Materials / Resources', to: '/materials', icon: 'bi-box-seam' },
                     { label: 'Progress Update', to: '/progress-updates', icon: 'bi-graph-up-arrow' },
                     { label: 'Site Report', to: '/site-reports', icon: 'bi-journal-text' },
                   ]}
                 />
               </div>
+              <section className="panel-card">
+                <div className="panel-card__head">
+                  <h2 className="panel-title">Attendance today</h2>
+                  <Link to="/attendance">Manage</Link>
+                </div>
+                {data.attendance_today.length === 0 ? (
+                  <p className="empty-hint">No attendance recorded today.</p>
+                ) : (
+                  <ul className="person-list">
+                    {data.attendance_today.slice(0, 6).map((a) => {
+                      const name = String(a.worker_name ?? 'Worker')
+                      const initials = name
+                        .split(/\s+/)
+                        .slice(0, 2)
+                        .map((p) => p[0]?.toUpperCase() ?? '')
+                        .join('')
+                      return (
+                        <li key={String(a.id)} className="person-list__item">
+                          <span className="person-avatar" aria-hidden="true">
+                            {initials}
+                          </span>
+                          <span className="person-list__meta">
+                            <span className="person-list__name">{name}</span>
+                            <span className="person-list__sub">{String(a.project_name)}</span>
+                          </span>
+                          <StatusPill status={String(a.status)} />
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </section>
             </aside>
           </div>
         </>

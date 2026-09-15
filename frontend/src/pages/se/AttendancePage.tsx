@@ -1,6 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Alert, Button, Form, Spinner, Table } from 'react-bootstrap'
 import { AppShell } from '../../components/layout/AppShell'
+import {
+  MetricCard,
+  PageHero,
+  StatusPill,
+} from '../../components/ui/PageChrome'
 import { ApiError } from '../../api/auth'
 import {
   fetchAttendance,
@@ -9,6 +14,15 @@ import {
   recordAttendance,
   type SiteMeta,
 } from '../../api/site'
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .join('')
+}
 
 export function AttendancePage() {
   const [meta, setMeta] = useState<SiteMeta | null>(null)
@@ -21,6 +35,7 @@ export function AttendancePage() {
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
   const [notes, setNotes] = useState('')
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -59,6 +74,29 @@ export function AttendancePage() {
       .catch(() => setWorkers([]))
   }, [projectId])
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return items
+    return items.filter((a) => {
+      const hay = `${a.worker_name ?? ''} ${a.project_name ?? ''} ${a.status ?? ''}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [items, search])
+
+  const stats = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    const todays = items.filter((a) => String(a.attendance_date) === today)
+    const present = todays.filter((a) => String(a.status).toLowerCase() === 'present').length
+    const absent = todays.filter((a) => String(a.status).toLowerCase() === 'absent').length
+    const late = todays.filter((a) => String(a.status).toLowerCase() === 'late').length
+    return {
+      total: todays.length,
+      present,
+      absent,
+      late,
+    }
+  }, [items])
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -82,12 +120,24 @@ export function AttendancePage() {
   }
 
   return (
-    <AppShell breadcrumb="People / Attendance" title="Attendance" phaseLabel="SE">
+    <AppShell>
+      <PageHero
+        title="Attendance"
+        subtitle="View and manage site attendance for your assigned projects."
+      />
+
       {error ? <Alert variant="danger">{error}</Alert> : null}
       {message ? <Alert variant="success">{message}</Alert> : null}
 
+      <section className="metric-grid metric-grid--4" aria-label="Attendance summary">
+        <MetricCard label="Total Today" value={stats.total} icon="bi-people" tone="slate" />
+        <MetricCard label="Present" value={stats.present} icon="bi-person-check" tone="green" />
+        <MetricCard label="Absent" value={stats.absent} icon="bi-person-x" tone="red" />
+        <MetricCard label="Late" value={stats.late} icon="bi-clock-history" tone="amber" />
+      </section>
+
       <section className="panel-card mb-4">
-        <h2 className="section-title">Record attendance</h2>
+        <h2 className="panel-title mb-3">Record attendance</h2>
         <Form className="form-grid" onSubmit={(e) => void onSubmit(e)}>
           <Form.Group>
             <Form.Label>Project</Form.Label>
@@ -130,7 +180,7 @@ export function AttendancePage() {
           <Form.Group>
             <Form.Label>Status</Form.Label>
             <Form.Select value={status} onChange={(e) => setStatus(e.target.value)}>
-              {(meta?.attendance_statuses ?? ['Present']).map((s) => (
+              {(meta?.attendance_statuses ?? ['Present', 'Absent', 'Late']).map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
@@ -154,49 +204,71 @@ export function AttendancePage() {
             <Form.Control value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Form.Group>
           <div className="form-grid__full">
-            <Button type="submit" variant="primary">
+            <Button type="submit" className="btn-accent">
               Save attendance
             </Button>
           </div>
         </Form>
       </section>
 
-      {loading ? (
-        <div className="loading-state">
-          <Spinner animation="border" />
+      <section className="panel-card">
+        <div className="panel-card__head">
+          <h2 className="panel-title">Attendance records</h2>
+          <Form.Control
+            className="list-search"
+            placeholder="Search worker or project…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-      ) : items.length === 0 ? (
-        <div className="empty-panel">
-          <p>No attendance records yet.</p>
-        </div>
-      ) : (
-        <div className="table-panel">
-          <Table responsive hover className="mb-0">
+
+        {loading ? (
+          <div className="loading-state">
+            <Spinner animation="border" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="empty-panel">
+            <p>No attendance records yet.</p>
+          </div>
+        ) : (
+          <Table responsive className="mb-0 data-table align-middle">
             <thead>
               <tr>
-                <th>Date</th>
+                <th>Member</th>
                 <th>Project</th>
-                <th>Worker</th>
+                <th>Date</th>
+                <th>Check-in</th>
+                <th>Check-out</th>
                 <th>Status</th>
-                <th>In</th>
-                <th>Out</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((a) => (
-                <tr key={String(a.id)}>
-                  <td>{String(a.attendance_date)}</td>
-                  <td>{String(a.project_name)}</td>
-                  <td>{String(a.worker_name)}</td>
-                  <td>{String(a.status)}</td>
-                  <td>{String(a.check_in ?? '—')}</td>
-                  <td>{String(a.check_out ?? '—')}</td>
-                </tr>
-              ))}
+              {filtered.map((a) => {
+                const name = String(a.worker_name ?? 'Worker')
+                return (
+                  <tr key={String(a.id)}>
+                    <td>
+                      <span className="person-cell">
+                        <span className="person-avatar" aria-hidden="true">
+                          {initials(name)}
+                        </span>
+                        <span className="person-cell__name">{name}</span>
+                      </span>
+                    </td>
+                    <td>{String(a.project_name)}</td>
+                    <td>{String(a.attendance_date)}</td>
+                    <td>{String(a.check_in ?? '—')}</td>
+                    <td>{String(a.check_out ?? '—')}</td>
+                    <td>
+                      <StatusPill status={String(a.status)} />
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </Table>
-        </div>
-      )}
+        )}
+      </section>
     </AppShell>
   )
 }

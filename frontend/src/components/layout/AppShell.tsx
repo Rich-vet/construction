@@ -78,12 +78,13 @@ export function AppShell({ children }: AppShellProps) {
   }, [user])
 
   const handleLogout = async () => {
+    if (loggingOut) return
     setLoggingOut(true)
     try {
       await logout()
-      navigate('/login', { replace: true })
     } finally {
       setLoggingOut(false)
+      navigate('/login', { replace: true })
     }
   }
 

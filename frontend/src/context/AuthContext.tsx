@@ -59,10 +59,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
-    await apiLogout()
-    setUser(null)
-    setNavigation([])
-    await fetchCsrf()
+    try {
+      await apiLogout()
+    } catch {
+      // Clear local session even if the API call fails (expired CSRF/session).
+    } finally {
+      setUser(null)
+      setNavigation([])
+      try {
+        await fetchCsrf()
+      } catch {
+        /* ignore */
+      }
+    }
   }, [])
 
   const value = useMemo(
