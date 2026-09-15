@@ -1,25 +1,42 @@
 import { useEffect, useState } from 'react'
-import { Alert, Spinner, Table } from 'react-bootstrap'
+import { Alert, Spinner } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
+import {
+  FilterTabs,
+  MetricCard,
+  PageHero,
+  ProgressBar,
+  PromoCard,
+  QuickActions,
+  StatusPill,
+  formatLongDate,
+  greetingForNow,
+} from '../../components/ui/PageChrome'
+import { useAuth } from '../../context/AuthContext'
 import { ApiError } from '../../api/auth'
 import { fetchAdminDashboard, type AdminDashboard } from '../../api/admin'
 
-const cardMeta: Array<{ key: keyof AdminDashboard['cards']; label: string; icon: string }> = [
-  { key: 'total_users', label: 'Total Users', icon: 'bi-people' },
-  { key: 'active_users', label: 'Active Users', icon: 'bi-person-check' },
-  { key: 'total_projects', label: 'Total Projects', icon: 'bi-building' },
-  { key: 'active_projects', label: 'Active Projects', icon: 'bi-hammer' },
-  { key: 'completed_projects', label: 'Completed Projects', icon: 'bi-check2-circle' },
-  { key: 'employees', label: 'Employees', icon: 'bi-person-badge' },
-  { key: 'contractors', label: 'Contractors', icon: 'bi-person-workspace' },
-  { key: 'low_stock_materials', label: 'Low-stock Materials', icon: 'bi-exclamation-triangle' },
-]
+function relativeTime(iso: string | null): string {
+  if (!iso) return ''
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return iso
+  const diff = Date.now() - then
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins} min ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  const days = Math.floor(hours / 24)
+  return `${days} day${days === 1 ? '' : 's'} ago`
+}
 
 export function AdminDashboardPage() {
+  const { user } = useAuth()
   const [data, setData] = useState<AdminDashboard | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [projectFilter, setProjectFilter] = useState('Active')
 
   useEffect(() => {
     fetchAdminDashboard()
@@ -30,8 +47,13 @@ export function AdminDashboardPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  const name = user?.full_name || 'Administrator'
+  const projects = (data?.recent_projects ?? []).filter((p) =>
+    projectFilter === 'All' ? true : p.status === projectFilter,
+  )
+
   return (
-    <AppShell breadcrumb="Home / Dashboard" title="Administrator Dashboard" phaseLabel="Admin">
+    <AppShell>
       {loading ? (
         <div className="loading-state" role="status">
           <Spinner animation="border" />
@@ -47,101 +69,144 @@ export function AdminDashboardPage() {
 
       {data ? (
         <>
-          <section className="status-grid admin-stats" aria-label="System statistics">
-            {cardMeta.map((card, index) => (
-              <article
-                key={String(card.key)}
-                className="status-card"
-                style={{ ['--delay' as string]: `${index * 40}ms` }}
-              >
-                <div className="status-card__icon" aria-hidden="true">
-                  <i className={`bi ${card.icon}`} />
-                </div>
-                <h3 className="status-card__title">{card.label}</h3>
-                <p className="stat-value">{data.cards[card.key]}</p>
-              </article>
-            ))}
+          <PageHero
+            title={greetingForNow(name)}
+            subtitle={formatLongDate()}
+          />
+
+          <section className="metric-grid" aria-label="System statistics">
+            <MetricCard
+              label="Total Projects"
+              value={data.cards.total_projects}
+              icon="bi-building"
+              tone="blue"
+            />
+            <MetricCard
+              label="Active Projects"
+              value={data.cards.active_projects}
+              icon="bi-hammer"
+              tone="amber"
+            />
+            <MetricCard
+              label="Completed Projects"
+              value={data.cards.completed_projects}
+              icon="bi-check2-circle"
+              tone="green"
+            />
+            <MetricCard
+              label="Low-stock Materials"
+              value={data.cards.low_stock_materials}
+              icon="bi-exclamation-triangle"
+              tone="red"
+            />
+            <MetricCard
+              label="Total Users"
+              value={data.cards.total_users}
+              icon="bi-people"
+              tone="slate"
+            />
+            <MetricCard
+              label="Active Users"
+              value={data.cards.active_users}
+              icon="bi-person-check"
+              tone="green"
+            />
+            <MetricCard
+              label="Employees"
+              value={data.cards.employees}
+              icon="bi-person-badge"
+              tone="blue"
+              hint="Registry module pending"
+            />
+            <MetricCard
+              label="Contractors"
+              value={data.cards.contractors}
+              icon="bi-person-workspace"
+              tone="amber"
+              hint="Registry module pending"
+            />
           </section>
 
-          <div className="admin-panels">
-            <section className="panel-card" aria-labelledby="activity-heading">
+          <div className="dash-layout">
+            <section className="panel-card dash-span-2">
               <div className="panel-card__head">
-                <h2 id="activity-heading" className="section-title">
-                  Recent activity
-                </h2>
+                <h2 className="panel-title">Project Overview</h2>
+                <Link to="/projects">View all</Link>
+              </div>
+              <FilterTabs
+                value={projectFilter}
+                onChange={setProjectFilter}
+                options={[
+                  { value: 'All', label: 'All' },
+                  { value: 'Active', label: 'Active' },
+                  { value: 'Completed', label: 'Completed' },
+                  { value: 'On Hold', label: 'On Hold' },
+                ]}
+              />
+              {projects.length === 0 ? (
+                <p className="empty-hint">No projects in this filter.</p>
+              ) : (
+                <ul className="project-overview-list">
+                  {projects.map((project) => (
+                    <li key={project.id}>
+                      <Link to={`/projects/${project.id}`} className="project-overview-item">
+                        <span className="project-overview-thumb" aria-hidden="true">
+                          <i className="bi bi-building" />
+                        </span>
+                        <span className="project-overview-meta">
+                          <span className="project-overview-name">{project.name}</span>
+                          <span className="project-overview-sub">
+                            {project.client_name || 'No client'} · {project.status}
+                          </span>
+                          <ProgressBar value={project.progress} />
+                        </span>
+                        <StatusPill status={project.status} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="panel-card">
+              <div className="panel-card__head">
+                <h2 className="panel-title">Recent Activity</h2>
                 <Link to="/activity-log">View all</Link>
               </div>
               {data.recent_activity.length === 0 ? (
                 <p className="empty-hint">No activity recorded yet.</p>
               ) : (
-                <ul className="activity-list">
-                  {data.recent_activity.map((item) => (
+                <ul className="activity-feed">
+                  {data.recent_activity.slice(0, 8).map((item) => (
                     <li key={item.id}>
-                      <strong>{item.actor_name}</strong> {item.action}
-                      {item.details ? <span className="text-muted"> — {item.details}</span> : null}
-                      <div className="small text-muted">{item.created_at}</div>
+                      <span className="activity-feed__icon" aria-hidden="true">
+                        <i className="bi bi-activity" />
+                      </span>
+                      <span>
+                        <strong>{item.actor_name}</strong> {item.action}
+                        <span className="activity-feed__time">
+                          {relativeTime(item.created_at)}
+                        </span>
+                      </span>
                     </li>
                   ))}
                 </ul>
               )}
             </section>
 
-            <section className="panel-card" aria-labelledby="projects-heading">
-              <div className="panel-card__head">
-                <h2 id="projects-heading" className="section-title">
-                  Recent projects
-                </h2>
+            <aside className="dash-aside">
+              <PromoCard />
+              <div className="panel-card">
+                <QuickActions
+                  items={[
+                    { label: 'Manage Users', to: '/users', icon: 'bi-person-plus' },
+                    { label: 'Company Profile', to: '/company', icon: 'bi-buildings' },
+                    { label: 'View Reports', to: '/reports', icon: 'bi-bar-chart-line' },
+                    { label: 'Notifications', to: '/notifications', icon: 'bi-bell' },
+                  ]}
+                />
               </div>
-              {data.recent_projects.length === 0 ? (
-                <p className="empty-hint">
-                  No projects yet. Project records will appear here when the Projects module is
-                  implemented.
-                </p>
-              ) : (
-                <Table responsive hover className="mb-0 align-middle">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Client</th>
-                      <th>Status</th>
-                      <th>Progress</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.recent_projects.map((project) => (
-                      <tr key={project.id}>
-                        <td>{project.name}</td>
-                        <td>{project.client_name ?? '—'}</td>
-                        <td>{project.status}</td>
-                        <td>{project.progress}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
-            </section>
-
-            <section className="panel-card" aria-labelledby="notes-heading">
-              <div className="panel-card__head">
-                <h2 id="notes-heading" className="section-title">
-                  Notifications
-                </h2>
-                <Link to="/notifications">View all</Link>
-              </div>
-              {data.notifications.length === 0 ? (
-                <p className="empty-hint">No notifications yet.</p>
-              ) : (
-                <ul className="activity-list">
-                  {data.notifications.map((note) => (
-                    <li key={note.id}>
-                      <strong>{note.title}</strong>
-                      <div>{note.message}</div>
-                      <div className="small text-muted">{note.created_at}</div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            </aside>
           </div>
         </>
       ) : null}

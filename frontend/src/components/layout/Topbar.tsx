@@ -1,26 +1,38 @@
-import { Link } from 'react-router-dom'
+import { useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
 type TopbarProps = {
-  breadcrumb: string
-  title: string
   onMenuClick: () => void
   userName?: string
   userRole?: string
   unreadCount?: number
-  onLogout?: () => void
-  loggingOut?: boolean
+  searchPlaceholder?: string
 }
 
 export function Topbar({
-  breadcrumb,
-  title,
   onMenuClick,
   userName,
   userRole,
   unreadCount = 0,
-  onLogout,
-  loggingOut,
+  searchPlaceholder = 'Search projects, tasks, materials…',
 }: TopbarProps) {
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+
+  const onSearch = (event: FormEvent) => {
+    event.preventDefault()
+    const q = query.trim()
+    if (!q) return
+    navigate(`/projects?search=${encodeURIComponent(q)}`)
+  }
+
+  const initials = (userName || 'U')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
+
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -33,10 +45,16 @@ export function Topbar({
         >
           <i className="bi bi-list" aria-hidden="true" />
         </button>
-        <div className="page-heading">
-          <p className="breadcrumb-trail">{breadcrumb}</p>
-          <h1 className="page-title">{title}</h1>
-        </div>
+        <form className="topbar-search" onSubmit={onSearch} role="search">
+          <i className="bi bi-search" aria-hidden="true" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={searchPlaceholder}
+            aria-label="Search"
+          />
+        </form>
       </div>
 
       <div className="topbar-right">
@@ -49,27 +67,18 @@ export function Topbar({
           title="Notifications"
         >
           <i className="bi bi-bell" aria-hidden="true" />
-          {unreadCount > 0 ? (
-            <span className="topbar-notify__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
-          ) : null}
+          {unreadCount > 0 ? <span className="topbar-notify__dot" aria-hidden="true" /> : null}
         </Link>
         {userName ? (
-          <>
-            <span className="status-chip" title={userRole}>
-              <i className="bi bi-person-circle" aria-hidden="true" />
-              {userName}
+          <div className="topbar-user" title={userRole}>
+            <span className="topbar-avatar" aria-hidden="true">
+              {initials}
             </span>
-            {onLogout ? (
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm"
-                onClick={onLogout}
-                disabled={loggingOut}
-              >
-                {loggingOut ? 'Signing out…' : 'Logout'}
-              </button>
-            ) : null}
-          </>
+            <span className="topbar-user-meta">
+              <span className="topbar-user-name">{userName}</span>
+              <span className="topbar-user-role">{userRole}</span>
+            </span>
+          </div>
         ) : null}
       </div>
     </header>

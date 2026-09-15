@@ -161,9 +161,9 @@
 4. **Expense receipts**
    - Optional upload of receipt files on expenses (PRD mentions receipts)  
 
-5. **~~Motion / animation~~** — **Done** (page enter, staggered cards/panels, nav/buttons, notification pulse; respects `prefers-reduced-motion`)
-
-6. **UI consistency pass**
+5. **~~Motion / animation~~** — **Done**  
+6. **~~Dashboard / page layout refresh~~** — **Done** (mockup-aligned shell: gold accents, search topbar, greeting dashboards, project cards, quick actions)  
+7. **UI consistency pass**
    - Confirm empty states, confirmations, and loading states on any remaining thin pages  
 
 ### Priority 3 — handover / environment (not missing app logic)

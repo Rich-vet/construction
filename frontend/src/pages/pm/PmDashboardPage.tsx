@@ -12,12 +12,24 @@ import {
 } from 'chart.js'
 import { Doughnut, Bar } from 'react-chartjs-2'
 import { AppShell } from '../../components/layout/AppShell'
+import {
+  MetricCard,
+  PageHero,
+  ProgressBar,
+  PromoCard,
+  QuickActions,
+  StatusPill,
+  formatLongDate,
+  greetingForNow,
+} from '../../components/ui/PageChrome'
+import { useAuth } from '../../context/AuthContext'
 import { ApiError } from '../../api/auth'
 import { fetchPmDashboard, type PmDashboard } from '../../api/projects'
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 export function PmDashboardPage() {
+  const { user } = useAuth()
   const [data, setData] = useState<PmDashboard | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -32,7 +44,7 @@ export function PmDashboardPage() {
   }, [])
 
   return (
-    <AppShell breadcrumb="Home / Dashboard" title="Project Manager Dashboard" phaseLabel="PM">
+    <AppShell>
       {loading ? (
         <div className="loading-state">
           <Spinner animation="border" />
@@ -42,38 +54,50 @@ export function PmDashboardPage() {
 
       {data ? (
         <>
-          <section className="status-grid admin-stats" aria-label="PM statistics">
-            {[
-              ['My Projects', data.cards.my_projects, 'bi-building'],
-              ['Active Projects', data.cards.active_projects, 'bi-hammer'],
-              ['Avg Progress', `${data.cards.average_progress}%`, 'bi-graph-up'],
-              ['Pending Requests', data.cards.pending_material_requests, 'bi-clipboard-check'],
-              ['Budget Alerts', data.cards.budget_alerts, 'bi-exclamation-triangle'],
-            ].map(([label, value, icon], index) => (
-              <article
-                key={String(label)}
-                className="status-card"
-                style={{ ['--delay' as string]: `${index * 40}ms` }}
-              >
-                <div className="status-card__icon" aria-hidden="true">
-                  <i className={`bi ${icon}`} />
-                </div>
-                <h3 className="status-card__title">{label}</h3>
-                <p className="stat-value">{value}</p>
-              </article>
-            ))}
+          <PageHero
+            title={greetingForNow(user?.full_name || 'Manager')}
+            subtitle={formatLongDate()}
+            actions={
+              <Link to="/projects/create" className="btn btn-accent">
+                <i className="bi bi-plus-lg me-1" aria-hidden="true" />
+                New Project
+              </Link>
+            }
+          />
+
+          <section className="metric-grid metric-grid--5" aria-label="PM statistics">
+            <MetricCard label="My Projects" value={data.cards.my_projects} icon="bi-building" tone="blue" />
+            <MetricCard label="Active" value={data.cards.active_projects} icon="bi-hammer" tone="amber" />
+            <MetricCard
+              label="Avg Progress"
+              value={`${data.cards.average_progress}%`}
+              icon="bi-graph-up"
+              tone="green"
+            />
+            <MetricCard
+              label="Pending Requests"
+              value={data.cards.pending_material_requests}
+              icon="bi-clipboard-check"
+              tone="slate"
+            />
+            <MetricCard
+              label="Budget Alerts"
+              value={data.cards.budget_alerts}
+              icon="bi-exclamation-triangle"
+              tone="red"
+            />
           </section>
 
-          <div className="admin-panels">
+          <div className="dash-layout">
             <section className="panel-card">
-              <h2 className="section-title">Project status</h2>
+              <h2 className="panel-title">Project status</h2>
               <Doughnut
                 data={{
                   labels: Object.keys(data.status_breakdown),
                   datasets: [
                     {
                       data: Object.values(data.status_breakdown),
-                      backgroundColor: ['#5c6570', '#e8a317', '#c45c26', '#2f6b4f', '#9b2f2f'],
+                      backgroundColor: ['#64748b', '#f59e0b', '#0ea5e9', '#16a34a', '#ef4444'],
                     },
                   ],
                 }}
@@ -81,60 +105,43 @@ export function PmDashboardPage() {
               />
             </section>
 
-            <section className="panel-card">
-              <h2 className="section-title">Progress by project</h2>
-              <Bar
-                data={{
-                  labels: data.projects.map((p) => p.name),
-                  datasets: [
-                    {
-                      label: 'Progress %',
-                      data: data.projects.map((p) => p.progress),
-                      backgroundColor: '#1f252e',
-                    },
-                  ],
-                }}
-                options={{
-                  scales: { y: { beginAtZero: true, max: 100 } },
-                  plugins: { legend: { display: false } },
-                }}
-              />
-            </section>
-
-            <section className="panel-card">
+            <section className="panel-card dash-span-2">
               <div className="panel-card__head">
-                <h2 className="section-title">Upcoming deadlines</h2>
-                <Link to="/projects">Projects</Link>
+                <h2 className="panel-title">Project Overview</h2>
+                <Link to="/projects">View all</Link>
               </div>
-              {data.upcoming_deadlines.length === 0 ? (
-                <p className="empty-hint">No upcoming deadlines.</p>
+              {data.projects.length === 0 ? (
+                <p className="empty-hint">No projects yet.</p>
               ) : (
-                <ul className="activity-list">
-                  {data.upcoming_deadlines.map((p) => (
+                <ul className="project-overview-list">
+                  {data.projects.slice(0, 6).map((p) => (
                     <li key={p.id}>
-                      <Link to={`/projects/${p.id}`}>
-                        <strong>{p.name}</strong>
+                      <Link to={`/projects/${p.id}`} className="project-overview-item">
+                        <span className="project-overview-thumb" aria-hidden="true">
+                          <i className="bi bi-building" />
+                        </span>
+                        <span className="project-overview-meta">
+                          <span className="project-overview-name">{p.name}</span>
+                          <span className="project-overview-sub">{p.location}</span>
+                          <ProgressBar value={p.progress} />
+                        </span>
+                        <StatusPill status={p.status} />
                       </Link>
-                      <div className="small text-muted">
-                        Due {p.expected_completion ?? '—'} · {p.status}
-                      </div>
                     </li>
                   ))}
                 </ul>
               )}
             </section>
-          </div>
 
-          <div className="admin-panels mt-4">
             <section className="panel-card">
               <div className="panel-card__head">
-                <h2 className="section-title">Pending material requests</h2>
+                <h2 className="panel-title">Pending requests</h2>
                 <Link to="/material-requests">Review</Link>
               </div>
               {data.pending_material_requests.length === 0 ? (
                 <p className="empty-hint">No pending requests.</p>
               ) : (
-                <Table responsive size="sm" className="mb-0">
+                <Table responsive size="sm" className="mb-0 data-table">
                   <thead>
                     <tr>
                       <th>Project</th>
@@ -156,38 +163,38 @@ export function PmDashboardPage() {
             </section>
 
             <section className="panel-card">
-              <h2 className="section-title">Budget alerts</h2>
-              {data.budget_alerts.length === 0 ? (
-                <p className="empty-hint">All projects are within budget.</p>
-              ) : (
-                <ul className="activity-list">
-                  {data.budget_alerts.map((a) => (
-                    <li key={String(a.project_id)}>
-                      <strong>{String(a.project_name)}</strong> over by K
-                      {Number(a.over_by).toLocaleString()}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <h2 className="panel-title">Progress by project</h2>
+              <Bar
+                data={{
+                  labels: data.projects.map((p) => p.name),
+                  datasets: [
+                    {
+                      label: 'Progress %',
+                      data: data.projects.map((p) => p.progress),
+                      backgroundColor: '#f59e0b',
+                    },
+                  ],
+                }}
+                options={{
+                  scales: { y: { beginAtZero: true, max: 100 } },
+                  plugins: { legend: { display: false } },
+                }}
+              />
             </section>
 
-            <section className="panel-card">
-              <h2 className="section-title">Recent expenses</h2>
-              {data.recent_expenses.length === 0 ? (
-                <p className="empty-hint">No expenses recorded yet.</p>
-              ) : (
-                <ul className="activity-list">
-                  {data.recent_expenses.map((e) => (
-                    <li key={String(e.id)}>
-                      <strong>{String(e.project_name)}</strong> — {String(e.description)}
-                      <div className="small text-muted">
-                        K{Number(e.amount).toLocaleString()} · {String(e.expense_date)}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            <aside className="dash-aside">
+              <PromoCard />
+              <div className="panel-card">
+                <QuickActions
+                  items={[
+                    { label: 'Add New Project', to: '/projects/create', icon: 'bi-plus-square' },
+                    { label: 'Material Requests', to: '/material-requests', icon: 'bi-clipboard-check' },
+                    { label: 'View Reports', to: '/reports', icon: 'bi-bar-chart-line' },
+                    { label: 'Quotations', to: '/quotations', icon: 'bi-file-earmark-text' },
+                  ]}
+                />
+              </div>
+            </aside>
           </div>
         </>
       ) : null}

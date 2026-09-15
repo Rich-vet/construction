@@ -6,13 +6,13 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
 type AppShellProps = {
-  breadcrumb: string
-  title: string
+  breadcrumb?: string
+  title?: string
   phaseLabel?: string
   children: ReactNode
 }
 
-export function AppShell({ breadcrumb, title, phaseLabel, children }: AppShellProps) {
+export function AppShell({ children }: AppShellProps) {
   const { user, navigation, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -96,19 +96,17 @@ export function AppShell({ breadcrumb, title, phaseLabel, children }: AppShellPr
         <Sidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
-          phaseLabel={phaseLabel}
           allowedNav={navigation}
+          onLogout={handleLogout}
+          loggingOut={loggingOut}
+          unreadCount={unreadCount}
         />
         <div className="app-main">
           <Topbar
-            breadcrumb={breadcrumb}
-            title={title}
             onMenuClick={() => setSidebarOpen(true)}
             userName={user?.full_name}
             userRole={user?.role}
             unreadCount={unreadCount}
-            onLogout={handleLogout}
-            loggingOut={loggingOut}
           />
           <main
             id="main-content"

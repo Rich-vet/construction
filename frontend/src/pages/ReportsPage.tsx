@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Form, Spinner, Table } from 'react-bootstrap'
 import { AppShell } from '../components/layout/AppShell'
+import { PageHero } from '../components/ui/PageChrome'
 import { ApiError } from '../api/auth'
 import {
   downloadReportPdf,
@@ -69,7 +70,11 @@ export function ReportsPage() {
   const selectedType = meta?.types.find((t) => t.id === reportId)
 
   return (
-    <AppShell breadcrumb="Reports" title="Reports dashboard" phaseLabel="Reports">
+    <AppShell>
+      <PageHero
+        title="Reports"
+        subtitle="Generate filtered, printable, and PDF reports."
+      />
       {loading ? (
         <div className="loading-state">
           <Spinner animation="border" />
@@ -81,7 +86,7 @@ export function ReportsPage() {
       {meta ? (
         <>
           <section className="panel-card mb-4 no-print">
-            <h2 className="section-title">Choose report</h2>
+            <h2 className="panel-title">Choose report</h2>
             <div className="report-type-grid mb-3">
               {meta.types.map((t) => (
                 <button
