@@ -21,7 +21,7 @@ export const navigation: NavSection[] = [
     label: 'Projects',
     items: [
       { id: 'projects', label: 'Projects', icon: 'bi-building', to: '/projects', implemented: true },
-      { id: 'tasks', label: 'Tasks', icon: 'bi-list-task', to: '/tasks', implemented: true },
+      { id: 'tasks', label: 'My Tasks', icon: 'bi-list-task', to: '/tasks', implemented: true },
       { id: 'milestones', label: 'Milestones', icon: 'bi-flag' },
     ],
   },
@@ -31,6 +31,12 @@ export const navigation: NavSection[] = [
       { id: 'employees', label: 'Employees', icon: 'bi-people' },
       { id: 'contractors', label: 'Contractors', icon: 'bi-person-badge' },
       { id: 'attendance', label: 'Attendance', icon: 'bi-calendar-check', to: '/attendance', implemented: true },
+    ],
+  },
+  {
+    label: 'My Work',
+    items: [
+      { id: 'progress', label: 'Progress', icon: 'bi-graph-up', to: '/progress', implemented: true },
     ],
   },
   {

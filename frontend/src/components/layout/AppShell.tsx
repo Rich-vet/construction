@@ -108,6 +108,12 @@ export function AppShell({ children }: AppShellProps) {
             userName={user?.full_name}
             userRole={user?.role}
             unreadCount={unreadCount}
+            searchPlaceholder={
+              user?.role === 'Contractor/Worker'
+                ? 'Search tasks, projects…'
+                : 'Search projects, tasks, materials…'
+            }
+            searchTo={user?.role === 'Contractor/Worker' ? '/tasks' : '/projects'}
           />
           <main
             id="main-content"

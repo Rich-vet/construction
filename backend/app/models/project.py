@@ -122,6 +122,7 @@ class Task(db.Model):
 
     project = db.relationship("Project", back_populates="tasks")
     assigned_user = db.relationship("User", foreign_keys=[assigned_user_id])
+    created_by = db.relationship("User", foreign_keys=[created_by_id])
     comments = db.relationship("TaskComment", back_populates="task", cascade="all, delete-orphan")
 
     def to_dict(self) -> dict:
@@ -133,6 +134,7 @@ class Task(db.Model):
             "description": self.description,
             "assigned_user_id": self.assigned_user_id,
             "assigned_user_name": self.assigned_user.full_name if self.assigned_user else None,
+            "assigned_by_name": self.created_by.full_name if self.created_by else None,
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "due_date": self.due_date.isoformat() if self.due_date else None,
             "priority": self.priority,

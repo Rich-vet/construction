@@ -1,101 +1,129 @@
-import { useEffect, useState } from 'react'
-import { Alert, Badge, Form, Spinner, Table } from 'react-bootstrap'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Spinner } from 'react-bootstrap'
+import { Link, useSearchParams } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
+import { FilterTabs, PageHero, ProgressBar, StatusPill } from '../../components/ui/PageChrome'
 import { ApiError } from '../../api/auth'
 import { fetchMyTasks } from '../../api/worker'
+import {
+  formatDueLabel,
+  isDueToday,
+  isOverdue,
+  taskProgressPercent,
+} from './workerHelpers'
+
+type TabKey = 'today' | 'upcoming' | 'completed' | 'overdue' | 'all'
 
 export function MyTasksPage() {
+  const [searchParams] = useSearchParams()
+  const search = (searchParams.get('search') || '').trim().toLowerCase()
   const [items, setItems] = useState<Array<Record<string, unknown>>>([])
-  const [status, setStatus] = useState('')
+  const [tab, setTab] = useState<TabKey>('today')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = (nextStatus = status) => {
+  useEffect(() => {
     setLoading(true)
-    fetchMyTasks(nextStatus || undefined)
+    fetchMyTasks()
       .then((data) => setItems(data.items))
       .catch((err: unknown) =>
         setError(err instanceof ApiError ? err.message : 'Unable to load tasks.'),
       )
       .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return (
-    <AppShell breadcrumb="Tasks" title="My tasks" phaseLabel="Worker">
-      <div className="page-toolbar">
-        <Form
-          className="filter-bar"
-          onSubmit={(e) => {
-            e.preventDefault()
-            load()
-          }}
-        >
-          <Form.Select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value)
-              load(e.target.value)
-            }}
-          >
-            <option value="">All statuses</option>
-            {['Pending', 'In Progress', 'Completed', 'Cancelled'].map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Form.Select>
-        </Form>
-      </div>
+  const filtered = useMemo(() => {
+    if (!search) return items
+    return items.filter((t) => {
+      const hay = `${t.name ?? ''} ${t.project_name ?? ''}`.toLowerCase()
+      return hay.includes(search)
+    })
+  }, [items, search])
 
-      {error ? <Alert variant="danger">{error}</Alert> : null}
-      {loading ? (
-        <div className="loading-state">
-          <Spinner animation="border" />
-        </div>
-      ) : items.length === 0 ? (
-        <div className="empty-panel">
-          <p>No tasks are assigned to you.</p>
-        </div>
-      ) : (
-        <div className="table-panel">
-          <Table responsive hover className="mb-0 align-middle">
-            <thead>
-              <tr>
-                <th>Task</th>
-                <th>Project</th>
-                <th>Due</th>
-                <th>Priority</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((t) => (
-                <tr key={String(t.id)}>
-                  <td>{String(t.name)}</td>
-                  <td>{String(t.project_name)}</td>
-                  <td>{String(t.due_date ?? '—')}</td>
-                  <td>{String(t.priority)}</td>
-                  <td>
-                    <Badge bg="secondary">{String(t.status)}</Badge>
-                  </td>
-                  <td>
-                    <Link to={`/tasks/${t.id}`} className="btn btn-sm btn-outline-secondary">
-                      Open
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </div>
-      )}
+  const buckets = useMemo(() => {
+    const today: typeof filtered = []
+    const upcoming: typeof filtered = []
+    const completed: typeof filtered = []
+    const overdue: typeof filtered = []
+    for (const t of filtered) {
+      const status = String(t.status)
+      if (status === 'Completed') {
+        completed.push(t)
+        continue
+      }
+      if (isOverdue(t.due_date, status)) {
+        overdue.push(t)
+        continue
+      }
+      if (isDueToday(t.due_date) || status === 'In Progress') {
+        today.push(t)
+        continue
+      }
+      upcoming.push(t)
+    }
+    return { today, upcoming, completed, overdue, all: filtered }
+  }, [filtered])
+
+  const visible = buckets[tab]
+
+  return (
+    <AppShell>
+      <PageHero
+        title="My Tasks"
+        subtitle={
+          search
+            ? `Results for “${searchParams.get('search')}”`
+            : 'Stay on top of assigned site work.'
+        }
+      />
+
+      <div className="panel-card">
+        <FilterTabs
+          value={tab}
+          onChange={(v) => setTab(v as TabKey)}
+          options={[
+            { value: 'today', label: `Today (${buckets.today.length})` },
+            { value: 'upcoming', label: `Upcoming (${buckets.upcoming.length})` },
+            { value: 'completed', label: `Completed (${buckets.completed.length})` },
+            { value: 'overdue', label: `Overdue (${buckets.overdue.length})` },
+          ]}
+        />
+
+        {error ? <Alert variant="danger">{error}</Alert> : null}
+        {loading ? (
+          <div className="loading-state">
+            <Spinner animation="border" />
+          </div>
+        ) : visible.length === 0 ? (
+          <div className="empty-panel">
+            <p>No tasks in this filter.</p>
+          </div>
+        ) : (
+          <ul className="worker-task-list">
+            {visible.map((t) => (
+              <li key={String(t.id)}>
+                <Link to={`/tasks/${t.id}`} className="worker-task-row worker-task-row--wide">
+                  <span className="worker-task-icon" aria-hidden="true">
+                    <i className="bi bi-clipboard-check" />
+                  </span>
+                  <span className="worker-task-meta">
+                    <span className="worker-task-name">{String(t.name)}</span>
+                    <span className="worker-task-sub">{String(t.project_name)}</span>
+                    <ProgressBar value={taskProgressPercent(t.status)} />
+                  </span>
+                  <span className="worker-task-side">
+                    <span className="worker-task-due">{formatDueLabel(t.due_date)}</span>
+                    <StatusPill status={String(t.status)} />
+                    <span className={`priority-chip priority-chip--${String(t.priority).toLowerCase()}`}>
+                      {String(t.priority)}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </AppShell>
   )
 }

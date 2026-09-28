@@ -28,6 +28,7 @@ import { SiteReportsPage } from './pages/se/SiteReportsPage'
 import { WorkerDashboardPage } from './pages/worker/WorkerDashboardPage'
 import { MyTasksPage } from './pages/worker/MyTasksPage'
 import { TaskDetailPage } from './pages/worker/TaskDetailPage'
+import { WorkerProgressPage } from './pages/worker/WorkerProgressPage'
 import { ProjectsGatePage } from './pages/worker/ProjectsGatePage'
 import { AttendanceGatePage } from './pages/worker/AttendanceGatePage'
 import { DocumentsGatePage } from './pages/worker/DocumentsGatePage'
@@ -116,6 +117,7 @@ export default function App() {
               <Route path="/worker" element={<WorkerDashboardPage />} />
               <Route path="/tasks" element={<MyTasksPage />} />
               <Route path="/tasks/:id" element={<TaskDetailPage />} />
+              <Route path="/progress" element={<WorkerProgressPage />} />
             </Route>
           </Route>
 

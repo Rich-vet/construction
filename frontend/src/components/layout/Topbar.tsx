@@ -7,6 +7,7 @@ type TopbarProps = {
   userRole?: string
   unreadCount?: number
   searchPlaceholder?: string
+  searchTo?: string
 }
 
 export function Topbar({
@@ -15,6 +16,7 @@ export function Topbar({
   userRole,
   unreadCount = 0,
   searchPlaceholder = 'Search projects, tasks, materials…',
+  searchTo = '/projects',
 }: TopbarProps) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
@@ -23,7 +25,7 @@ export function Topbar({
     event.preventDefault()
     const q = query.trim()
     if (!q) return
-    navigate(`/projects?search=${encodeURIComponent(q)}`)
+    navigate(`${searchTo}?search=${encodeURIComponent(q)}`)
   }
 
   const initials = (userName || 'U')
