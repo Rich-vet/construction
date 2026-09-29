@@ -2,7 +2,7 @@
 
 **Project:** Construction Company Management System (CCMS)  
 **Stack:** Flask API + React (Vite/TypeScript) + SQLAlchemy + SQLite (MySQL-ready)  
-**Last updated:** 23 August 2026  
+**Last updated:** 29 September 2026  
 
 ---
 
@@ -15,8 +15,9 @@
 | Automated tests | **Passing** (major modules) |
 | Live MySQL handover on this machine | **Not done** (path documented; server not installed) |
 | Biggest functional gap | **Employees & Contractors CRUD** |
+| Workflow refactor (audit plan) | **Phases A–G done** |
 
-**Estimate:** roughly **~90–95%** of required school-project functionality is implemented. Remaining work is people management, a few UX/navigation polish items, and optional MySQL verification.
+**Estimate:** roughly **~90–95%** of required school-project functionality is implemented. Remaining work is people management, design polish (Phase F), hardening (Phase G), and optional MySQL verification.
 
 ---
 
@@ -82,10 +83,10 @@
 - [x] Maintenance logging  
 
 ### Finance
-- [x] Budget lines by category (Materials, Labour, Equipment, Transport, Other)  
-- [x] Expenses  
+- [x] Budget lines by category (Materials, Labour, Equipment, Transport, Other) + revision SoD  
+- [x] Expenses (Pending → Approved/Rejected, SoD; actuals/reports use Approved only)  
 - [x] Budget vs actual (project workspace + reports)  
-- [ ] Expense **receipt file** upload (optional polish vs PRD wording)  
+- [ ] Expense **receipt file** upload (optional polish vs PRD wording)
 
 ### Procurement
 - [x] Material request → approve/reject  
@@ -137,34 +138,18 @@
 
 ### Priority 1 — functional gaps (recommended)
 
-1. **Employees module**
-   - Full CRUD API + UI pages  
-   - Fields aligned with PRD (name, code, phone, email, position, skills, status, etc.)  
-   - Wire sidebar **Employees** nav item  
-   - Seed sample employees so admin dashboard counts are meaningful  
-
-2. **Contractors module**
-   - Full CRUD API + UI pages  
-   - Distinct from login Users / Worker role accounts where the PRD expects a registry  
-   - Wire sidebar **Contractors** nav item  
-   - Seed sample contractors  
+1. **~~Employees module~~** — **Done** (API + pages + nav + seed)  
+2. **~~Contractors module~~** — **Done** (API + pages + nav + seed; optional Worker user link)  
 
 ### Priority 2 — UX / navigation polish
 
-3. **Sidebar completeness**
-   - Either add standalone pages **or** deep-link to project tabs for:
-     - Milestones  
-     - Budgets  
-     - Expenses  
-   - Or hide nav items that are not standalone pages so the UI does not look unfinished  
-
+3. **~~Sidebar completeness~~** — **Done** (Milestones / Budgets / Expenses hub → project tabs)  
 4. **Expense receipts**
    - Optional upload of receipt files on expenses (PRD mentions receipts)  
 
 5. **~~Motion / animation~~** — **Done**  
 6. **~~Dashboard / page layout refresh~~** — **Done** (mockup-aligned shell: gold accents, search topbar, greeting dashboards, project cards, quick actions)  
-7. **UI consistency pass**
-   - Confirm empty states, confirmations, and loading states on any remaining thin pages  
+7. **~~UI consistency / Phase F~~** — **Done** (dark mode, StatusBadge, EmptyState, LoadingButton, ConfirmDialog, mobile touch targets)
 
 ### Priority 3 — handover / environment (not missing app logic)
 
@@ -220,8 +205,6 @@ python scripts/demo_walkthrough.py
 
 ---
 
-## Suggested next implementation task
+**Suggested next implementation task**
 
-**Implement Employees + Contractors management** (API + React pages + nav + seed), then wire or clean up sidebar items for milestones/budgets/expenses.
-
-When that is done, the project should be effectively complete against the school PRD, aside from optional live MySQL verification on a machine with MySQL installed.
+Optional polish: expense **receipt** uploads, or live **MySQL** verification on a machine with MySQL installed. Core school PRD modules are otherwise in place.

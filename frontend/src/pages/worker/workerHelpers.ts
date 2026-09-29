@@ -1,7 +1,8 @@
 /** Derive a visual progress % from task status (worker tasks have no separate progress field). */
 export function taskProgressPercent(status: unknown): number {
   const s = String(status || '').toLowerCase()
-  if (s === 'completed') return 100
+  if (s === 'verified' || s === 'completed') return 100
+  if (s === 'ready for review') return 85
   if (s === 'in progress') return 55
   if (s === 'cancelled') return 0
   return 15
@@ -10,7 +11,7 @@ export function taskProgressPercent(status: unknown): number {
 export function isOverdue(dueDate: unknown, status: unknown): boolean {
   if (!dueDate) return false
   const s = String(status || '').toLowerCase()
-  if (s === 'completed' || s === 'cancelled') return false
+  if (s === 'verified' || s === 'completed' || s === 'cancelled') return false
   const due = new Date(String(dueDate))
   if (Number.isNaN(due.getTime())) return false
   const today = new Date()

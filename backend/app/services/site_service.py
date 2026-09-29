@@ -656,6 +656,78 @@ def create_progress_update(actor: User, data: dict) -> ProgressUpdate:
     return update
 
 
+def create_site_diary(actor: User, data: dict) -> dict:
+    """Authoritative Site Diary write: one entry dual-writes SiteReport + ProgressUpdate.
+
+    Avoids engineers filling two overlapping forms. Uses a single commit.
+    """
+    project = _require_site_project(actor, int(data.get("project_id")))
+    diary_date = _parse_date(data.get("diary_date") or data.get("report_date") or data.get("update_date")) or date.today()
+    activities = (data.get("activities_completed") or data.get("work_completed") or "").strip()
+    problems = (data.get("problems") or "").strip() or None
+    next_activities = (data.get("next_activities") or "").strip() or None
+    materials_used = (data.get("materials_used") or "").strip() or None
+    equipment_used = (data.get("equipment_used") or "").strip() or None
+    safety = (data.get("safety_observations") or "").strip() or None
+    workers_raw = data.get("workers_present")
+    workers_present = int(workers_raw) if workers_raw not in (None, "") else None
+
+    percentage = float(data.get("percentage") or 0)
+    if percentage < 0 or percentage > 100:
+        raise SiteServiceError("Percentage must be between 0 and 100.")
+
+    if not activities and not any([materials_used, equipment_used, problems, safety, next_activities]):
+        raise SiteServiceError("Enter activities completed or at least one diary section.")
+
+    work_text = activities or "Site diary entry"
+    report = SiteReport(
+        project_id=project.id,
+        report_date=diary_date,
+        workers_present=workers_present,
+        activities_completed=activities or None,
+        materials_used=materials_used,
+        equipment_used=equipment_used,
+        problems=problems,
+        safety_observations=safety,
+        next_activities=next_activities,
+        created_by_id=actor.id,
+    )
+    update = ProgressUpdate(
+        project_id=project.id,
+        update_date=diary_date,
+        work_completed=work_text,
+        percentage=percentage,
+        problems=problems,
+        next_activities=next_activities,
+        created_by_id=actor.id,
+    )
+    if percentage > float(project.progress or 0):
+        project.progress = percentage
+
+    db.session.add(report)
+    db.session.add(update)
+    db.session.flush()
+    log_activity(
+        actor=actor,
+        action="site_diary",
+        entity_type="project",
+        entity_id=project.id,
+        details=f"{diary_date.isoformat()} · {percentage}% — {work_text[:80]}",
+    )
+    if project.project_manager_id and project.project_manager_id != actor.id:
+        notify_user(
+            user_id=project.project_manager_id,
+            title="Site diary submitted",
+            message=f"{actor.full_name} submitted a site diary for {project.name} ({percentage}%).",
+            link=f"/projects/{project.id}?tab=site",
+        )
+    db.session.commit()
+    return {
+        "report": report.to_dict(),
+        "progress_update": update.to_dict(),
+    }
+
+
 def list_site_reports(actor: User, project_id: int | None = None) -> list[dict]:
     ids = _assigned_project_ids(actor)
     if not ids:

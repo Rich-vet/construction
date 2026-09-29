@@ -77,7 +77,7 @@ export function SeDashboardPage() {
             <section className="panel-card">
               <div className="panel-card__head">
                 <h2 className="panel-title">Today&apos;s Tasks</h2>
-                <Link to="/progress-updates">Progress</Link>
+                <Link to="/site-diary">Site Diary</Link>
               </div>
               {data.today_tasks.length === 0 ? (
                 <p className="empty-hint">No tasks due today.</p>
@@ -138,9 +138,9 @@ export function SeDashboardPage() {
                 <QuickActions
                   items={[
                     { label: 'Record Attendance', to: '/attendance', icon: 'bi-calendar-check' },
-                    { label: 'Materials / Resources', to: '/materials', icon: 'bi-box-seam' },
-                    { label: 'Progress Update', to: '/progress-updates', icon: 'bi-graph-up-arrow' },
-                    { label: 'Site Report', to: '/site-reports', icon: 'bi-journal-text' },
+                    { label: 'Site Diary', to: '/site-diary', icon: 'bi-journal-richtext' },
+                    { label: 'Materials', to: '/materials', icon: 'bi-box-seam' },
+                    { label: 'Equipment', to: '/equipment', icon: 'bi-truck' },
                   ]}
                 />
               </div>

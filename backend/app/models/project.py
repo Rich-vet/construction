@@ -8,11 +8,13 @@ from app.extensions import db
 from app.models.base import utcnow
 
 PROJECT_STATUSES = ("Planned", "Active", "On Hold", "Completed", "Cancelled")
-TASK_STATUSES = ("Pending", "In Progress", "Completed", "Cancelled")
+# Verified = officially done (SE). Legacy "Completed" may still exist in older rows.
+TASK_STATUSES = ("Pending", "In Progress", "Ready for Review", "Verified", "Cancelled", "Completed")
 TASK_PRIORITIES = ("Low", "Medium", "High", "Urgent")
 BUDGET_CATEGORIES = ("Materials", "Labour", "Equipment", "Transport", "Other")
 REQUEST_STATUSES = ("Pending", "Approved", "Rejected", "Fulfilled")
 PO_STATUSES = ("Draft", "Approved", "Ordered", "Delivered", "Cancelled")
+EXPENSE_STATUSES = ("Pending", "Approved", "Rejected")
 
 
 class Project(db.Model):
@@ -126,6 +128,9 @@ class Task(db.Model):
     comments = db.relationship("TaskComment", back_populates="task", cascade="all, delete-orphan")
 
     def to_dict(self) -> dict:
+        status = self.status
+        if status == "Completed":
+            status = "Verified"
         return {
             "id": self.id,
             "project_id": self.project_id,
@@ -138,7 +143,7 @@ class Task(db.Model):
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "due_date": self.due_date.isoformat() if self.due_date else None,
             "priority": self.priority,
-            "status": self.status,
+            "status": status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -212,8 +217,12 @@ class BudgetLine(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False, index=True)
     category = db.Column(db.String(40), nullable=False)
     amount = db.Column(db.Numeric(14, 2), nullable=False, default=Decimal("0"))
+    # Pending revision (SoD): proposed change awaiting approval by a different manager/admin.
+    pending_amount = db.Column(db.Numeric(14, 2), nullable=True)
+    pending_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
 
     project = db.relationship("Project", back_populates="budget_lines")
+    pending_by = db.relationship("User", foreign_keys=[pending_by_id])
 
     def to_dict(self) -> dict:
         return {
@@ -221,6 +230,10 @@ class BudgetLine(db.Model):
             "project_id": self.project_id,
             "category": self.category,
             "amount": float(self.amount or 0),
+            "pending_amount": float(self.pending_amount) if self.pending_amount is not None else None,
+            "pending_by_id": self.pending_by_id,
+            "pending_by_name": self.pending_by.full_name if self.pending_by else None,
+            "has_pending_revision": self.pending_amount is not None,
         }
 
 
@@ -235,14 +248,18 @@ class Expense(db.Model):
     expense_date = db.Column(db.Date, nullable=False)
     payee = db.Column(db.String(120), nullable=True)
     payment_method = db.Column(db.String(80), nullable=True)
+    status = db.Column(db.String(40), nullable=False, default="Pending", index=True)
     recorded_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    review_notes = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     project = db.relationship("Project", back_populates="expenses")
-    recorded_by = db.relationship("User")
+    recorded_by = db.relationship("User", foreign_keys=[recorded_by_id])
+    reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id])
 
-    def to_dict(self) -> dict:
-        return {
+    def to_dict(self, *, can_approve: bool | None = None) -> dict:
+        data = {
             "id": self.id,
             "project_id": self.project_id,
             "project_name": self.project.name if self.project else None,
@@ -252,8 +269,15 @@ class Expense(db.Model):
             "expense_date": self.expense_date.isoformat() if self.expense_date else None,
             "payee": self.payee,
             "payment_method": self.payment_method,
+            "status": self.status or "Pending",
+            "recorded_by_id": self.recorded_by_id,
             "recorded_by_name": self.recorded_by.full_name if self.recorded_by else None,
+            "reviewed_by_name": self.reviewed_by.full_name if self.reviewed_by else None,
+            "review_notes": self.review_notes,
         }
+        if can_approve is not None:
+            data["can_approve"] = can_approve
+        return data
 
 
 class ProgressUpdate(db.Model):

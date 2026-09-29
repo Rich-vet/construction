@@ -47,7 +47,7 @@ export function MyTasksPage() {
     const overdue: typeof filtered = []
     for (const t of filtered) {
       const status = String(t.status)
-      if (status === 'Completed') {
+      if (status === 'Completed' || status === 'Verified') {
         completed.push(t)
         continue
       }

@@ -153,6 +153,14 @@ export function createSiteReport(payload: Record<string, unknown>) {
   return apiRequest('/api/site/site-reports', { method: 'POST', body: payload, csrf: true })
 }
 
+export function createSiteDiary(payload: Record<string, unknown>) {
+  return apiRequest<{
+    message: string
+    report: Record<string, unknown>
+    progress_update: Record<string, unknown>
+  }>('/api/site/site-diary', { method: 'POST', body: payload, csrf: true })
+}
+
 export function fetchDocuments(projectId?: number) {
   const suffix = projectId ? `?project_id=${projectId}` : ''
   return apiRequest<{ items: Array<Record<string, unknown>> }>(`/api/site/documents${suffix}`)

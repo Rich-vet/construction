@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Alert, Spinner } from 'react-bootstrap'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
+import { EmptyState } from '../../components/ui/Feedback'
 import {
   FilterTabs,
   PageHero,
@@ -73,18 +74,22 @@ export function ProjectsListPage() {
             <Spinner animation="border" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="empty-panel">
-            <p>
-              {canCreate
-                ? 'No projects match this filter yet.'
-                : 'No projects are assigned to you yet.'}
-            </p>
-            {canCreate ? (
-              <Link to="/projects/create" className="btn btn-accent">
-                Create Project
-              </Link>
-            ) : null}
-          </div>
+          <EmptyState
+            icon="bi-building"
+            title={search ? 'No matching projects' : 'No projects yet'}
+            description={
+              canCreate
+                ? 'Create a project to start planning budget, tasks, and site work.'
+                : 'No projects are assigned to you yet.'
+            }
+            action={
+              canCreate ? (
+                <Link to="/projects/create" className="btn btn-accent">
+                  Create Project
+                </Link>
+              ) : null
+            }
+          />
         ) : (
           <ul className="project-card-list">
             {filtered.map((p) => (

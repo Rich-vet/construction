@@ -89,14 +89,22 @@ def test_pm_cannot_access_other_manager_project(client, app):
 
 def test_task_and_expense_and_request_flow(client, app):
     _login(client, "manager@example.com")
-    project = client.post(
-        "/api/projects",
-        json={"name": "Clinic Block", "client_name": "MoH", "location": "Kasama", "budget": 200000},
-    ).get_json()["project"]
-
     meta = client.get("/api/projects/meta").get_json()
     material_id = meta["materials"][0]["id"]
     worker_id = next(u["id"] for u in meta["assignable_users"] if u["role"] == "Contractor/Worker")
+    engineer_id = next(u["id"] for u in meta["assignable_users"] if u["role"] == "Site Engineer")
+
+    project = client.post(
+        "/api/projects",
+        json={
+            "name": "Clinic Block",
+            "client_name": "MoH",
+            "location": "Kasama",
+            "budget": 200000,
+            "site_engineer_id": engineer_id,
+            "status": "Active",
+        },
+    ).get_json()["project"]
 
     task = client.post(
         "/api/projects/tasks",
@@ -122,6 +130,8 @@ def test_task_and_expense_and_request_flow(client, app):
     )
     assert expense.status_code == 201
 
+    # SoD: creator cannot approve — Site Engineer submits, PM reviews.
+    _login(client, "engineer@example.com")
     req = client.post(
         "/api/projects/material-requests",
         json={
@@ -134,12 +144,32 @@ def test_task_and_expense_and_request_flow(client, app):
     assert req.status_code == 201
     request_id = req.get_json()["request"]["id"]
 
-    reviewed = client.post(
+    _login(client, "manager@example.com")
+    self_approve = client.post(
         f"/api/projects/material-requests/{request_id}/review",
         json={"status": "Approved"},
     )
-    assert reviewed.status_code == 200
-    assert reviewed.get_json()["request"]["status"] == "Approved"
+    # Manager did not create this one — should succeed
+    assert self_approve.status_code == 200
+    assert self_approve.get_json()["request"]["status"] == "Approved"
+
+    # Creating then approving own request must fail
+    own = client.post(
+        "/api/projects/material-requests",
+        json={
+            "project_id": project["id"],
+            "material_id": material_id,
+            "quantity": 2,
+            "reason": "Self test",
+        },
+    )
+    assert own.status_code == 201
+    own_id = own.get_json()["request"]["id"]
+    blocked = client.post(
+        f"/api/projects/material-requests/{own_id}/review",
+        json={"status": "Approved"},
+    )
+    assert blocked.status_code == 403
 
     dash = client.get("/api/projects/dashboard")
     assert dash.status_code == 200

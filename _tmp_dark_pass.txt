@@ -1,0 +1,317 @@
+
+######## LINE 632 assistant ########
+TEXT: Switching the app to dark-only and fixing remaining light/white surfaces.
+Grep theme|data-theme|ThemeProvider|useTheme|ccms-theme|#fff|#ffffff|background:\s*#f|bg-white|btn-outline-dark
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\context\ThemeContext.tsx
+Grep Appearance|theme|setTheme|toggleTheme
+
+######## LINE 633 assistant ########
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\index.html
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\pages\admin\SettingsPage.tsx
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\components\layout\Topbar.tsx
+
+######## LINE 634 assistant ########
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Grep #0f172a|#fff7ed|filter-tab\.is-active|auth-card|login
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+
+######## LINE 635 assistant ########
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='/* CCMS Design System — Construction / Engineering identity */\n\n:root {\n  --ccms-charcoal: #0f172a;\n  --ccms-graphite: #' new_start='/* CCMS Design System — Construction / Engineering identity (dark only) */\n\n:root {\n  --ccms-charcoal: #e2e8f0;\n  --ccms'
+
+######## LINE 636 assistant ########
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.metric-card__icon--amber {\n  background: #fef3c7;\n  color: #d97706;\n}\n.metric-card__icon--green {\n  background: #dcfce7' new_start='.metric-card__icon--amber {\n  background: rgba(251, 191, 36, 0.18);\n  color: var(--ccms-amber);\n}\n.metric-card__icon--gr'
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.filter-tab.is-active {\n  background: var(--ccms-warning-bg);\n  color: var(--ccms-amber-deep);\n}' new_start='.filter-tab.is-active {\n  background: var(--ccms-warning-bg);\n  color: var(--ccms-amber);\n}'
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start=".status-pill--ready-for-review {\n  background: #ede9fe;\n  color: #6d28d9;\n}\n\n[data-theme='dark'] .status-pill--ready-for" new_start='.status-pill--ready-for-review {\n  background: #312e81;\n  color: #c4b5fd;\n}'
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.project-overview-thumb {\n  width: 48px;\n  height: 48px;\n  border-radius: 12px;\n  display: inline-flex;\n  align-items: c' new_start='.project-overview-thumb {\n  width: 48px;\n  height: 48px;\n  border-radius: 12px;\n  display: inline-flex;\n  align-items: c'
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.activity-feed__icon {\n  width: 34px;\n  height: 34px;\n  border-radius: 10px;\n  background: #fff7ed;\n  color: #d97706;\n  ' new_start='.activity-feed__icon {\n  width: 34px;\n  height: 34px;\n  border-radius: 10px;\n  background: rgba(251, 191, 36, 0.16);\n  c'
+Grep #fff7ed|#f1f5f9|#f8fafc|#ffedd5|#e0f2fe|#f0f9ff|#bae6fd|#fee2e2|#dcfce7
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+
+######## LINE 637 assistant ########
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Grep project-overview-thumb|activity-feed__icon|filter-tab\.is-active
+
+######## LINE 638 assistant ########
+Grep #fff7ed|#f1f5f9|#f8fafc|#ffedd5|#e0f2fe|#f0f9ff|#bae6fd|#fee2e2|#dcfce7|#fdba74
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+
+######## LINE 639 assistant ########
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.quick-action i:first-child {\n  width: 34px;\n  height: 34px;\n  border-radius: 10px;\n  display: inline-flex;\n  align-item' new_start='.quick-action i:first-child {\n  width: 34px;\n  height: 34px;\n  border-radius: 10px;\n  display: inline-flex;\n  align-item'
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+
+######## LINE 640 assistant ########
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.worker-task-icon {\n  width: 40px;\n  height: 40px;\n  border-radius: 12px;\n  background: #fff7ed;\n  color: #d97706;\n  dis' new_start='.worker-task-icon {\n  width: 40px;\n  height: 40px;\n  border-radius: 12px;\n  background: rgba(251, 191, 36, 0.16);\n  colo'
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.priority-chip {\n  display: inline-flex;\n  align-items: center;\n  gap: 0.25rem;\n  font-size: 0.75rem;\n  font-weight: 650' new_start='.priority-chip {\n  display: inline-flex;\n  align-items: center;\n  gap: 0.25rem;\n  font-size: 0.75rem;\n  font-weight: 650'
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.task-inline-form {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 0.65rem;\n  align-items: flex-start;\n  margin-bottom: 1rem' new_start='.task-inline-form {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 0.65rem;\n  align-items: flex-start;\n  margin-bottom: 1rem'
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.attendance-clock {\n  width: 88px;\n  height: 88px;\n  margin: 0 auto 1rem;\n  border-radius: 50%;\n  display: flex;\n  align' new_start='.attendance-clock {\n  width: 88px;\n  height: 88px;\n  margin: 0 auto 1rem;\n  border-radius: 50%;\n  display: flex;\n  align'
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+===RELEVANT OLD===
+/* Dark theme surface fixes for leftover hard-coded light panels */
+[data-theme='dark'] .table,
+[data-theme='dark'] .form-control,
+[data-theme='dark'] .form-select,
+[data-theme='dark'] .modal-content,
+[data-theme='dark'] .dropdown-menu {
+  background-color: var(--ccms-surface);
+  color: var(--ccms-text);
+  border-color: var(--ccms-border);
+}
+
+[data-theme='dark'] .form-control::placeholder {
+  color: var(--ccms-text-muted);
+}
+
+[data-theme='dark'] .table > :not(caption) > * > * {
+  background-color: transparent;
+  color: var(--ccms-text);
+  border-bottom-color: var(--ccms-border);
+}
+
+[data-theme='dark'] .alert-danger {
+  background: var(--ccms-danger-bg);
+  color: var(--ccms-danger);
+  border-color: var(--ccms-border);
+}
+
+[data-theme='dark'] .alert-success {
+  background: var(--ccms-success-bg);
+  color: var(--ccms-success);
+  border-color: var(--ccms-border);
+}
+
+[data-theme='dark'] .btn-outline-secondary,
+[data-theme='dark'] .btn-outline-dark {
+  color: var(--ccms-text);
+  border-color: var(--ccms-border-strong);
+}
+
+[data-theme='dark'] .attendance-clock {
+  background: var(--ccms-surface-muted);
+  color: var(--ccms-text-muted);
+  border-color: var(--ccms-border);
+}
+
+[data-theme='dark'] .filter-tabs {
+  background: var(--ccms-surface-muted);
+}
+
+[data-theme='dark'] .text-muted {
+  color: var(--ccms-text-muted) !important;
+}
+===RELEVANT NEW===
+/* Bootstrap / form surfaces for dark UI */
+.table,
+.form-control,
+.form-select,
+.modal-content,
+.dropdown-menu,
+.card,
+.list-group-item {
+  background-color: var(--ccms-surface);
+  color: var(--ccms-text);
+  border-color: var(--ccms-border);
+}
+
+.form-control::placeholder {
+  color: var(--ccms-text-muted);
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--ccms-surface);
+  color: var(--ccms-text);
+  border-color: var(--ccms-amber);
+  box-shadow: 0 0 0 0.2rem rgba(251, 191, 36, 0.2);
+}
+
+.table > :not(caption) > * > * {
+  background-color: transparent;
+  color: var(--ccms-text);
+  border-bottom-color: var(--ccms-border);
+}
+
+.table-hover > tbody > tr:hover > * {
+  background-color: var(--ccms-surface-muted);
+  color: var(--ccms-text);
+}
+
+.alert-danger {
+  background: var(--ccms-danger-bg);
+  color: var(--ccms-danger);
+  border-color: var(--ccms-border);
+}
+
+.alert-success {
+  background: var(--ccms-success-bg);
+  color: var(--ccms-success);
+  border-color: var(--ccms-border);
+}
+
+.alert-warning {
+  background: var(--ccms-warning-bg);
+  color: var(--ccms-warning);
+  border-color: var(--ccms-border);
+}
+
+.alert-info {
+  background: var(--ccms-info-bg);
+  color: var(--ccms-info);
+  border-color: var(--ccms-border);
+}
+
+.btn-outline-secondary,
+.btn-outline-dark {
+  color: var(--ccms-text);
+  border-color: var(--ccms-border-strong);
+  background: transparent;
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-dark:hover {
+  color: var(--ccms-text-inverse);
+  background: var(--ccms-amber);
+  border-color: var(--ccms-amber);
+}
+
+.filter-tabs {
+  background: var(--ccms-surface-muted);
+}
+
+.text-muted,
+.text-secondary {
+  color: var(--ccms-text-muted) !important;
+}
+
+.bg-white,
+.bg-light,
+.bg-body,
+.bg-body-tertiary {
+  background-color: var(--ccms-surface) !important;
+  color: var(--ccms-text) !important;
+}
+
+.badge.bg-light,
+.badge.text-bg-light {
+  background-color: var(--ccms-surface-muted) !important;
+  color: var(--ccms-text) !important;
+}
+
+.spinner-border {
+  color: var(--ccms-amber);
+}
+
+.page-link {
+  background-color: var(--ccms-surface);
+  border-color: var(--ccms-border);
+  color: var(--ccms-text);
+}
+
+.page-item.active .page-link {
+  background-color: var(--ccms-amber);
+  border-color: var(--ccms-amber);
+  color: var(--ccms-text-inverse);
+}
+
+.page-link:hover {
+  background-color: var(--ccms-surface-muted);
+  border-color: var(--ccms-border-strong);
+  color: var(--ccms-text);
+}
+
+######## LINE 641 assistant ########
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+
+######## LINE 642 assistant ########
+Grep \.auth-card|\.auth-shell|\.auth-panel
+Write d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\main.tsx
+Write d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\index.html
+Write d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\components\layout\Topbar.tsx
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\pages\admin\SettingsPage.tsx
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\pages\admin\SettingsPage.tsx
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\pages\admin\SettingsPage.tsx
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\pages\worker\TaskDetailPage.tsx
+
+######## LINE 643 assistant ########
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Grep ThemeContext|useTheme|data-theme
+Grep #fff7ed|#f1f5f9|#f8fafc|#ffffff|#fff |background:\s*#f
+Grep topbar-search|\.panel-card|app-content|app-main
+
+######## LINE 644 assistant ########
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='  background:\n    radial-gradient(circle at 12% 18%, rgba(232, 163, 23, 0.12), transparent 42%),\n    linear-gradient(180' new_start='  background:\n    radial-gradient(circle at 12% 18%, rgba(251, 191, 36, 0.14), transparent 42%),\n    linear-gradient(180'
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+Grep btn-outline-dark|bg-white|bg-light|text-dark|bg-light
+Grep Dark mode|light \+|Appearance|theme
+
+######## LINE 645 assistant ########
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\CCMS_REFACTORING_AUDIT_AND_PLAN.md
+Grep empty-panel|loading-state|filter-tabs
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+CallDynamicTool
+
+######## LINE 646 assistant ########
+GetDynamicTools
+
+######## LINE 647 assistant ########
+CallDynamicTool
+Grep ThemeContext|useTheme|ccms-theme|Appearance
+Grep #f7f8fa|#ffffff|background:\s*white|bg:\s*#fff
+Read d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+
+######## LINE 648 assistant ########
+Grep nav-tabs|\.tab-content|\.nav-link
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.page-link:hover {\n  background-color: var(--ccms-surface-muted);\n  border-color: var(--ccms-border-strong);\n  color: va' new_start='.page-link:hover {\n  background-color: var(--ccms-surface-muted);\n  border-color: var(--ccms-border-strong);\n  color: va'
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.filter-tab.is-active {\n  background: var(--ccms-warning-bg);\n  color: var(--ccms-amber-deep);\n}\n\n.progress-track {\n  po' new_start='.filter-tab.is-active {\n  background: var(--ccms-warning-bg);\n  color: var(--ccms-amber);\n}\n\n.progress-track {\n  positio'
+
+######## LINE 649 assistant ########
+StrReplace -> d:\Y4S1\projects\Construction Company Management System (CCMS)\frontend\src\styles\main.css
+  (other css) old_start='.filter-tab.is-active {\n  background: var(--ccms-warning-bg);\n  color: var(--ccms-amber-deep);\n}\n\n.status-pill {\n  displ' new_start='.filter-tab.is-active {\n  background: var(--ccms-warning-bg);\n  color: var(--ccms-amber);\n}\n\n.status-pill {\n  display: i'
+
+######## LINE 650 assistant ########
+TEXT: Dark mode is now the only theme.
+
+**Removed**
+- Light theme tokens and theme toggle (Topbar + Settings)
+- `ThemeContext` / preference storage
+
+**Fixed white/light surfaces**
+- Forms, tables, modals, dropdowns, tabs, pagination
+- Metric icons, activity/quick-action chips, priority badges
+- Attendance clock, safety banner, task forms, auth background
+- Bootstrap `bg-white` / `bg-light` overrides
+
+Refresh the app — everything should render on the dark charcoal surfaces with amber accents.
+
+######## LINE 651 None ########
+
+######## LINE 652 user ########
+TEXT: <timestamp>Tuesday, Sep 29, 2026, 7:58 PM (UTC+4)</timestamp>
+<user_query>
+the vev bar and the top bar have a white overlay that has made the texts and icon on the not visible
+</user_query>

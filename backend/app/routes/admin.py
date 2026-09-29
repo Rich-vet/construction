@@ -7,7 +7,7 @@ from werkzeug.exceptions import NotFound
 
 from app.extensions import csrf
 from app.models import ActivityLog, Notification
-from app.services import company_service, user_service
+from app.services import company_service, people_service, user_service
 from app.services.admin_dashboard_service import admin_dashboard
 from app.utils.auth import get_current_user, roles_required
 from app.utils.roles import (
@@ -161,6 +161,129 @@ def company_update():
     except company_service.CompanyServiceError as exc:
         return jsonify({"error": "company_error", "message": exc.message}), exc.status_code
     return jsonify({"message": "Company profile updated.", "company": company.to_dict()})
+
+
+@admin_bp.get("/employees")
+@roles_required(ADMINISTRATOR)
+def employees_list():
+    return jsonify(
+        people_service.list_employees(
+            search=request.args.get("search"),
+            status=request.args.get("status"),
+            page=int(request.args.get("page", 1)),
+            per_page=int(request.args.get("per_page", 20)),
+        )
+    )
+
+
+@admin_bp.get("/employees/meta")
+@roles_required(ADMINISTRATOR)
+def employees_meta():
+    return jsonify({"statuses": list(people_service.EMPLOYEE_STATUSES)})
+
+
+@admin_bp.get("/employees/<int:employee_id>")
+@roles_required(ADMINISTRATOR)
+def employees_detail(employee_id: int):
+    try:
+        emp = people_service.get_employee(employee_id)
+    except people_service.PeopleServiceError as exc:
+        return jsonify({"error": "people_error", "message": exc.message}), exc.status_code
+    return jsonify({"employee": emp.to_dict()})
+
+
+@admin_bp.post("/employees")
+@roles_required(ADMINISTRATOR)
+@csrf.exempt
+def employees_create():
+    _require_csrf()
+    actor = get_current_user()
+    assert actor is not None
+    try:
+        emp = people_service.create_employee(actor, request.get_json(silent=True) or {})
+    except people_service.PeopleServiceError as exc:
+        return jsonify({"error": "people_error", "message": exc.message}), exc.status_code
+    return jsonify({"message": "Employee created.", "employee": emp.to_dict()}), 201
+
+
+@admin_bp.put("/employees/<int:employee_id>")
+@roles_required(ADMINISTRATOR)
+@csrf.exempt
+def employees_update(employee_id: int):
+    _require_csrf()
+    actor = get_current_user()
+    assert actor is not None
+    try:
+        emp = people_service.update_employee(
+            actor, employee_id, request.get_json(silent=True) or {}
+        )
+    except people_service.PeopleServiceError as exc:
+        return jsonify({"error": "people_error", "message": exc.message}), exc.status_code
+    return jsonify({"message": "Employee updated.", "employee": emp.to_dict()})
+
+
+@admin_bp.get("/contractors")
+@roles_required(ADMINISTRATOR)
+def contractors_list():
+    return jsonify(
+        people_service.list_contractors(
+            search=request.args.get("search"),
+            status=request.args.get("status"),
+            page=int(request.args.get("page", 1)),
+            per_page=int(request.args.get("per_page", 20)),
+        )
+    )
+
+
+@admin_bp.get("/contractors/meta")
+@roles_required(ADMINISTRATOR)
+def contractors_meta():
+    return jsonify(
+        {
+            "statuses": list(people_service.CONTRACTOR_STATUSES),
+            "linkable_users": people_service.list_linkable_worker_users(),
+        }
+    )
+
+
+@admin_bp.get("/contractors/<int:contractor_id>")
+@roles_required(ADMINISTRATOR)
+def contractors_detail(contractor_id: int):
+    try:
+        row = people_service.get_contractor(contractor_id)
+    except people_service.PeopleServiceError as exc:
+        return jsonify({"error": "people_error", "message": exc.message}), exc.status_code
+    return jsonify({"contractor": row.to_dict()})
+
+
+@admin_bp.post("/contractors")
+@roles_required(ADMINISTRATOR)
+@csrf.exempt
+def contractors_create():
+    _require_csrf()
+    actor = get_current_user()
+    assert actor is not None
+    try:
+        row = people_service.create_contractor(actor, request.get_json(silent=True) or {})
+    except people_service.PeopleServiceError as exc:
+        return jsonify({"error": "people_error", "message": exc.message}), exc.status_code
+    return jsonify({"message": "Contractor created.", "contractor": row.to_dict()}), 201
+
+
+@admin_bp.put("/contractors/<int:contractor_id>")
+@roles_required(ADMINISTRATOR)
+@csrf.exempt
+def contractors_update(contractor_id: int):
+    _require_csrf()
+    actor = get_current_user()
+    assert actor is not None
+    try:
+        row = people_service.update_contractor(
+            actor, contractor_id, request.get_json(silent=True) or {}
+        )
+    except people_service.PeopleServiceError as exc:
+        return jsonify({"error": "people_error", "message": exc.message}), exc.status_code
+    return jsonify({"message": "Contractor updated.", "contractor": row.to_dict()})
 
 
 @admin_bp.get("/company/logo/<int:company_id>")

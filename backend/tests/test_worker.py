@@ -128,7 +128,13 @@ def test_worker_updates_status_comments_and_evidence(client, app):
         f"/api/worker/tasks/{task_id}/evidence",
         data={
             "name": "Photo of work",
-            "file": (io.BytesIO(b"fake-photo"), "work.jpg"),
+            # Minimal valid JPEG (SOI + JFIF + EOI) for magic-byte checks.
+            "file": (
+                io.BytesIO(
+                    b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xd9"
+                ),
+                "work.jpg",
+            ),
         },
         content_type="multipart/form-data",
     )

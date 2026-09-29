@@ -56,6 +56,8 @@ class Config:
 
     UPLOAD_FOLDER = BASE_DIR / "uploads"
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH_MB", "16")) * 1024 * 1024
+    # Logos stay small; documents use MAX_CONTENT_LENGTH.
+    MAX_LOGO_BYTES = int(os.getenv("MAX_LOGO_MB", "2")) * 1024 * 1024
 
     CORS_ORIGINS = _cors_origins()
 

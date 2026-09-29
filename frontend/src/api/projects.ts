@@ -84,6 +84,10 @@ export function updateTask(id: number, payload: Record<string, unknown>) {
   return apiRequest(`/api/projects/tasks/${id}`, { method: 'PUT', body: payload, csrf: true })
 }
 
+export function verifyTask(id: number) {
+  return apiRequest(`/api/projects/tasks/${id}/verify`, { method: 'POST', csrf: true })
+}
+
 export function createMilestone(payload: Record<string, unknown>) {
   return apiRequest('/api/projects/milestones', { method: 'POST', body: payload, csrf: true })
 }
@@ -112,8 +116,28 @@ export function upsertBudget(projectId: number, category: string, amount: number
   })
 }
 
+export function reviewBudgetRevision(
+  projectId: number,
+  category: string,
+  status: 'Approved' | 'Rejected',
+) {
+  return apiRequest(`/api/projects/${projectId}/budgets/${category}/review`, {
+    method: 'POST',
+    body: { status },
+    csrf: true,
+  })
+}
+
 export function createExpense(payload: Record<string, unknown>) {
   return apiRequest('/api/projects/expenses', { method: 'POST', body: payload, csrf: true })
+}
+
+export function reviewExpense(id: number, status: 'Approved' | 'Rejected', notes?: string) {
+  return apiRequest(`/api/projects/expenses/${id}/review`, {
+    method: 'POST',
+    body: { status, notes },
+    csrf: true,
+  })
 }
 
 export function fetchMaterialRequests() {

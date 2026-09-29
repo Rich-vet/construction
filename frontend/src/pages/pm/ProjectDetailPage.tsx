@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Alert, Badge, Button, Form, Nav, Spinner, Table, Tab } from 'react-bootstrap'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
 import { ApiError } from '../../api/auth'
 import {
@@ -16,14 +16,39 @@ import {
   fetchProjectMeta,
   fetchProjectWorkspace,
   removeMember,
+  reviewBudgetRevision,
+  reviewExpense,
   reviewMaterialRequest,
   selectQuotation,
   upsertBudget,
+  verifyTask,
 } from '../../api/projects'
 
 export function ProjectDetailPage() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const projectId = Number(id)
+  const tabParam = searchParams.get('tab')
+  const initialTab =
+    tabParam === 'site'
+      ? 'progress'
+      : tabParam === 'procurement'
+        ? 'procurement'
+        : tabParam &&
+            [
+              'overview',
+              'tasks',
+              'milestones',
+              'team',
+              'budget',
+              'expenses',
+              'procurement',
+              'progress',
+              'reports',
+            ].includes(tabParam)
+          ? tabParam
+          : 'overview'
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [workspace, setWorkspace] = useState<Record<string, unknown> | null>(null)
   const [meta, setMeta] = useState<Awaited<ReturnType<typeof fetchProjectMeta>> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -50,6 +75,7 @@ export function ProjectDetailPage() {
 
   const project = workspace?.project as Record<string, unknown> | undefined
   const canManage = Boolean(workspace?.can_manage)
+  const canOperateSite = Boolean(workspace?.can_operate_site)
   const totals = workspace?.totals as Record<string, number> | undefined
 
   const run = async (fn: () => Promise<unknown>, success: string) => {
@@ -136,7 +162,7 @@ export function ProjectDetailPage() {
         </dl>
       </div>
 
-      <Tab.Container defaultActiveKey="overview">
+      <Tab.Container activeKey={activeTab} onSelect={(k) => k && setActiveTab(k)}>
         <Nav variant="tabs" className="mb-3 project-tabs">
           {[
             'overview',
@@ -170,12 +196,14 @@ export function ProjectDetailPage() {
           <Tab.Pane eventKey="tasks">
             <WorkspaceTasks
               canManage={canManage}
+              canOperateSite={canOperateSite}
               projectId={projectId}
               tasks={(workspace?.tasks as Array<Record<string, unknown>>) || []}
               users={meta?.assignable_users || []}
               onCreate={(payload) =>
                 run(() => createTask(payload), 'Task created successfully.')
               }
+              onVerify={(tid) => run(() => verifyTask(tid), 'Task verified.')}
             />
           </Tab.Pane>
 
@@ -212,7 +240,13 @@ export function ProjectDetailPage() {
               projectId={projectId}
               rows={(workspace?.budget_vs_actual as Array<Record<string, unknown>>) || []}
               onSave={(category, amount) =>
-                run(() => upsertBudget(projectId, category, amount), 'Budget updated.')
+                run(() => upsertBudget(projectId, category, amount), 'Budget saved.')
+              }
+              onReview={(category, status) =>
+                run(
+                  () => reviewBudgetRevision(projectId, category, status),
+                  `Budget revision ${status.toLowerCase()}.`,
+                )
               }
             />
           </Tab.Pane>
@@ -224,7 +258,10 @@ export function ProjectDetailPage() {
               expenses={(workspace?.expenses as Array<Record<string, unknown>>) || []}
               categories={meta?.budget_categories || []}
               onCreate={(payload) =>
-                run(() => createExpense(payload), 'Expense recorded.')
+                run(() => createExpense(payload), 'Expense submitted for approval.')
+              }
+              onReview={(id, status) =>
+                run(() => reviewExpense(id, status), `Expense ${status.toLowerCase()}.`)
               }
             />
           </Tab.Pane>
@@ -256,9 +293,19 @@ export function ProjectDetailPage() {
           </Tab.Pane>
 
           <Tab.Pane eventKey="progress">
+            <div className="panel-card mb-3">
+              <p className="empty-hint mb-2">
+                Progress is recorded through the Site Diary (activities + %). View recent posts below.
+              </p>
+              {canOperateSite ? (
+                <Link to={`/site-diary?project_id=${projectId}`} className="btn btn-primary">
+                  Open Site Diary
+                </Link>
+              ) : null}
+            </div>
             <SimpleList
               title="Progress updates"
-              empty="No progress updates yet. Site Engineers will submit these in a later phase."
+              empty="No progress updates yet."
               items={(workspace?.progress_updates as Array<Record<string, unknown>>) || []}
               render={(item) => (
                 <>
@@ -270,9 +317,19 @@ export function ProjectDetailPage() {
           </Tab.Pane>
 
           <Tab.Pane eventKey="reports">
+            <div className="panel-card mb-3">
+              <p className="empty-hint mb-2">
+                Daily site reports are submitted via Site Diary. This tab shows history for the project.
+              </p>
+              {canOperateSite ? (
+                <Link to={`/site-diary?project_id=${projectId}`} className="btn btn-primary">
+                  Open Site Diary
+                </Link>
+              ) : null}
+            </div>
             <SimpleList
               title="Site reports"
-              empty="No site reports yet. Site Engineers will create these in a later phase."
+              empty="No site reports yet."
               items={(workspace?.site_reports as Array<Record<string, unknown>>) || []}
               render={(item) => (
                 <>
@@ -317,10 +374,12 @@ function SimpleList({
 
 function WorkspaceTasks(props: {
   canManage: boolean
+  canOperateSite: boolean
   projectId: number
   tasks: Array<Record<string, unknown>>
   users: Array<{ id: number; full_name: string; role: string }>
   onCreate: (payload: Record<string, unknown>) => void
+  onVerify: (taskId: number) => void
 }) {
   const [name, setName] = useState('')
   const [priority, setPriority] = useState('Medium')
@@ -374,6 +433,7 @@ function WorkspaceTasks(props: {
             <th>Priority</th>
             <th>Due</th>
             <th>Status</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -384,6 +444,13 @@ function WorkspaceTasks(props: {
               <td>{String(t.priority)}</td>
               <td>{String(t.due_date ?? '—')}</td>
               <td>{String(t.status)}</td>
+              <td className="table-actions">
+                {props.canOperateSite && Boolean(t.can_verify) ? (
+                  <Button size="sm" variant="success" onClick={() => props.onVerify(Number(t.id))}>
+                    Verify Completion
+                  </Button>
+                ) : null}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -518,6 +585,7 @@ function WorkspaceBudget(props: {
   projectId: number
   rows: Array<Record<string, unknown>>
   onSave: (category: string, amount: number) => void
+  onReview: (category: string, status: 'Approved' | 'Rejected') => void
 }) {
   return (
     <div className="panel-card">
@@ -525,9 +593,10 @@ function WorkspaceBudget(props: {
         <thead>
           <tr>
             <th>Category</th>
-            <th>Budget</th>
+            <th>Approved budget</th>
             <th>Actual</th>
             <th>Variance</th>
+            <th>Pending revision</th>
             <th></th>
           </tr>
         </thead>
@@ -538,6 +607,7 @@ function WorkspaceBudget(props: {
               row={row}
               canManage={props.canManage}
               onSave={props.onSave}
+              onReview={props.onReview}
             />
           ))}
         </tbody>
@@ -550,13 +620,17 @@ function BudgetRow({
   row,
   canManage,
   onSave,
+  onReview,
 }: {
   row: Record<string, unknown>
   canManage: boolean
   onSave: (category: string, amount: number) => void
+  onReview: (category: string, status: 'Approved' | 'Rejected') => void
 }) {
   const [amount, setAmount] = useState(String(row.budget ?? 0))
   const variance = Number(row.variance ?? 0)
+  const pending = row.pending_amount != null ? Number(row.pending_amount) : null
+  const canApproveRevision = Boolean(row.can_approve_revision)
   return (
     <tr>
       <td>{String(row.category)}</td>
@@ -579,10 +653,40 @@ function BudgetRow({
         K{variance.toLocaleString()}
       </td>
       <td>
+        {pending != null ? (
+          <span>
+            K{pending.toLocaleString()}{' '}
+            <Badge bg="warning" text="dark">
+              Pending
+            </Badge>
+          </span>
+        ) : (
+          '—'
+        )}
+      </td>
+      <td className="d-flex gap-2 flex-wrap">
         {canManage ? (
           <Button size="sm" onClick={() => onSave(String(row.category), Number(amount))}>
-            Save
+            {Number(row.budget) === 0 && !row.budget_line_id ? 'Set' : 'Propose'}
           </Button>
+        ) : null}
+        {canApproveRevision ? (
+          <>
+            <Button
+              size="sm"
+              variant="success"
+              onClick={() => onReview(String(row.category), 'Approved')}
+            >
+              Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="outline-danger"
+              onClick={() => onReview(String(row.category), 'Rejected')}
+            >
+              Reject
+            </Button>
+          </>
         ) : null}
       </td>
     </tr>
@@ -595,6 +699,7 @@ function WorkspaceExpenses(props: {
   expenses: Array<Record<string, unknown>>
   categories: string[]
   onCreate: (payload: Record<string, unknown>) => void
+  onReview: (id: number, status: 'Approved' | 'Rejected') => void
 }) {
   const [category, setCategory] = useState('Materials')
   const [description, setDescription] = useState('')
@@ -643,7 +748,7 @@ function WorkspaceExpenses(props: {
             value={dateValue}
             onChange={(e) => setDateValue(e.target.value)}
           />
-          <Button type="submit">Add expense</Button>
+          <Button type="submit">Submit expense</Button>
         </Form>
       ) : null}
       <Table responsive size="sm" className="mb-0">
@@ -653,17 +758,49 @@ function WorkspaceExpenses(props: {
             <th>Category</th>
             <th>Description</th>
             <th>Amount</th>
+            <th>Status</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          {props.expenses.map((e) => (
-            <tr key={String(e.id)}>
-              <td>{String(e.expense_date)}</td>
-              <td>{String(e.category)}</td>
-              <td>{String(e.description)}</td>
-              <td>K{Number(e.amount).toLocaleString()}</td>
-            </tr>
-          ))}
+          {props.expenses.map((e) => {
+            const status = String(e.status || 'Pending')
+            const badge =
+              status === 'Approved' ? 'success' : status === 'Rejected' ? 'danger' : 'warning'
+            return (
+              <tr key={String(e.id)}>
+                <td>{String(e.expense_date)}</td>
+                <td>{String(e.category)}</td>
+                <td>{String(e.description)}</td>
+                <td>K{Number(e.amount).toLocaleString()}</td>
+                <td>
+                  <Badge bg={badge} text={status === 'Pending' ? 'dark' : undefined}>
+                    {status}
+                  </Badge>
+                </td>
+                <td className="d-flex gap-2">
+                  {Boolean(e.can_approve) && status === 'Pending' ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="success"
+                        onClick={() => props.onReview(Number(e.id), 'Approved')}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-danger"
+                        onClick={() => props.onReview(Number(e.id), 'Rejected')}
+                      >
+                        Reject
+                      </Button>
+                    </>
+                  ) : null}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </Table>
     </div>
@@ -747,7 +884,7 @@ function WorkspaceProcurement(props: {
                 <td>{String(r.quantity)}</td>
                 <td>{String(r.status)}</td>
                 <td className="table-actions">
-                  {props.canManage && r.status === 'Pending' ? (
+                  {Boolean(r.can_approve) && String(r.status) === 'Pending' ? (
                     <>
                       <Button
                         size="sm"

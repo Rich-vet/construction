@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
+export { StatusBadge, StatusPill } from './Feedback'
+
 type MetricTone = 'amber' | 'green' | 'blue' | 'red' | 'slate'
 
 const toneIcon: Record<MetricTone, string> = {
@@ -100,15 +102,6 @@ export function FilterTabs({
       ))}
     </div>
   )
-}
-
-export function StatusPill({
-  status,
-}: {
-  status: string
-}) {
-  const key = status.toLowerCase().replace(/\s+/g, '-')
-  return <span className={`status-pill status-pill--${key}`}>{status}</span>
 }
 
 export function ProgressBar({ value }: { value: number }) {

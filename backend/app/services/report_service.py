@@ -220,7 +220,8 @@ def _financial(ids: list[int], d_from, d_to):
             )
         )
         exp_stmt = select(func.coalesce(func.sum(Expense.amount), 0)).where(
-            Expense.project_id == p.id
+            Expense.project_id == p.id,
+            Expense.status == "Approved",
         )
         if d_from:
             exp_stmt = exp_stmt.where(Expense.expense_date >= d_from)
@@ -252,7 +253,9 @@ def _budget_vs_actual(ids: list[int], d_from, d_to):
     for p in db.session.scalars(select(Project).where(Project.id.in_(ids)).order_by(Project.name)):
         lines = db.session.scalars(select(BudgetLine).where(BudgetLine.project_id == p.id))
         categories = {l.category: float(l.amount or 0) for l in lines}
-        expenses = db.session.scalars(select(Expense).where(Expense.project_id == p.id))
+        expenses = db.session.scalars(
+            select(Expense).where(Expense.project_id == p.id, Expense.status == "Approved")
+        )
         actuals: dict[str, float] = {}
         for e in expenses:
             if d_from and e.expense_date and e.expense_date < d_from:

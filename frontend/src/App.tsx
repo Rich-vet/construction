@@ -14,6 +14,10 @@ import { CompanyProfilePage } from './pages/admin/CompanyProfilePage'
 import { ActivityLogPage } from './pages/admin/ActivityLogPage'
 import { NotificationsPage } from './pages/admin/NotificationsPage'
 import { SettingsPage } from './pages/admin/SettingsPage'
+import { EmployeesListPage } from './pages/admin/EmployeesListPage'
+import { EmployeeFormPage } from './pages/admin/EmployeeFormPage'
+import { ContractorsListPage } from './pages/admin/ContractorsListPage'
+import { ContractorFormPage } from './pages/admin/ContractorFormPage'
 import { PmDashboardPage } from './pages/pm/PmDashboardPage'
 import { ProjectFormPage } from './pages/pm/ProjectFormPage'
 import { ProjectDetailPage } from './pages/pm/ProjectDetailPage'
@@ -25,6 +29,8 @@ import { MaterialsPage } from './pages/se/MaterialsPage'
 import { EquipmentPage } from './pages/se/EquipmentPage'
 import { ProgressUpdatesPage } from './pages/se/ProgressUpdatesPage'
 import { SiteReportsPage } from './pages/se/SiteReportsPage'
+import { SiteDiaryPage } from './pages/se/SiteDiaryPage'
+import { ProjectTabHubPage } from './pages/pm/ProjectTabHubPage'
 import { WorkerDashboardPage } from './pages/worker/WorkerDashboardPage'
 import { MyTasksPage } from './pages/worker/MyTasksPage'
 import { TaskDetailPage } from './pages/worker/TaskDetailPage'
@@ -53,6 +59,12 @@ export default function App() {
               <Route path="/users/create" element={<UserFormPage mode="create" />} />
               <Route path="/users/:id" element={<UserDetailPage />} />
               <Route path="/users/:id/edit" element={<UserFormPage mode="edit" />} />
+              <Route path="/employees" element={<EmployeesListPage />} />
+              <Route path="/employees/create" element={<EmployeeFormPage mode="create" />} />
+              <Route path="/employees/:id/edit" element={<EmployeeFormPage mode="edit" />} />
+              <Route path="/contractors" element={<ContractorsListPage />} />
+              <Route path="/contractors/create" element={<ContractorFormPage mode="create" />} />
+              <Route path="/contractors/:id/edit" element={<ContractorFormPage mode="edit" />} />
               <Route path="/company" element={<CompanyProfilePage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
@@ -86,12 +98,16 @@ export default function App() {
               <Route path="/equipment" element={<EquipmentPage />} />
               <Route path="/progress-updates" element={<ProgressUpdatesPage />} />
               <Route path="/site-reports" element={<SiteReportsPage />} />
+              <Route path="/site-diary" element={<SiteDiaryPage />} />
             </Route>
 
             <Route element={<RoleRoute roles={['Administrator', 'Project Manager']} />}>
               <Route path="/pm" element={<PmDashboardPage />} />
               <Route path="/projects/create" element={<ProjectFormPage mode="create" />} />
               <Route path="/projects/:id/edit" element={<ProjectFormPage mode="edit" />} />
+              <Route path="/milestones" element={<ProjectTabHubPage tab="milestones" />} />
+              <Route path="/budgets" element={<ProjectTabHubPage tab="budget" />} />
+              <Route path="/expenses" element={<ProjectTabHubPage tab="expenses" />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/quotations" element={<ProcurementListsPage initialTab="quotations" />} />
               <Route
@@ -109,11 +125,11 @@ export default function App() {
               <Route path="/projects/:id" element={<ProjectDetailPage />} />
             </Route>
 
-            <Route element={<RoleRoute roles={['Site Engineer', 'Administrator']} />}>
+            <Route element={<RoleRoute roles={['Site Engineer']} />}>
               <Route path="/se" element={<SeDashboardPage />} />
             </Route>
 
-            <Route element={<RoleRoute roles={['Contractor/Worker', 'Administrator']} />}>
+            <Route element={<RoleRoute roles={['Contractor/Worker']} />}>
               <Route path="/worker" element={<WorkerDashboardPage />} />
               <Route path="/tasks" element={<MyTasksPage />} />
               <Route path="/tasks/:id" element={<TaskDetailPage />} />

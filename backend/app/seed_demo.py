@@ -134,6 +134,7 @@ def seed_demo_scenario() -> dict | None:
             description="Initial cement and steel purchase",
             amount=Decimal("18500.00"),
             expense_date=today - timedelta(days=7),
+            status="Approved",
             recorded_by_id=manager.id,
         )
     )
@@ -144,6 +145,7 @@ def seed_demo_scenario() -> dict | None:
             description="Week 1 site crew wages",
             amount=Decimal("12000.00"),
             expense_date=today - timedelta(days=5),
+            status="Approved",
             recorded_by_id=manager.id,
         )
     )

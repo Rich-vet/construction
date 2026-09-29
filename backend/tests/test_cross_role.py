@@ -78,12 +78,16 @@ def test_delivery_writes_ledger_and_fulfills_request(client, app):
     assert project.status_code == 201
     project_id = project.get_json()["project"]["id"]
 
+    # SoD: Site Engineer creates the request; PM approves.
+    _login(client, "engineer@example.com")
     req = client.post(
         "/api/projects/material-requests",
         json={"project_id": project_id, "material_id": material_id, "quantity": 3},
     )
     assert req.status_code == 201
     req_id = req.get_json()["request"]["id"]
+
+    _login(client, "manager@example.com")
     review = client.post(
         f"/api/projects/material-requests/{req_id}/review",
         json={"status": "Approved"},

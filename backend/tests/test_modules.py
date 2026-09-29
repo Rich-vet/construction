@@ -25,12 +25,24 @@ def test_budget_vs_actual_on_project_workspace(client):
     assert created.status_code == 201
     project_id = created.get_json()["project"]["id"]
 
+    # Auto-seeded lines already exist — further edits are pending revisions (SoD).
     budget = client.put(
         f"/api/projects/{project_id}/budgets/Materials",
         json={"amount": 40000},
     )
     assert budget.status_code == 200
+    assert float(budget.get_json()["budget_line"]["pending_amount"]) == 40000
 
+    login(client, "admin@example.com")
+    approved_budget = client.post(
+        f"/api/projects/{project_id}/budgets/Materials/review",
+        json={"status": "Approved"},
+    )
+    assert approved_budget.status_code == 200
+    assert float(approved_budget.get_json()["budget_line"]["amount"]) == 40000
+    assert approved_budget.get_json()["budget_line"]["pending_amount"] is None
+
+    login(client, "manager@example.com")
     expense = client.post(
         "/api/projects/expenses",
         json={
@@ -42,14 +54,77 @@ def test_budget_vs_actual_on_project_workspace(client):
         },
     )
     assert expense.status_code == 201
+    expense_id = expense.get_json()["expense"]["id"]
+    assert expense.get_json()["expense"]["status"] == "Pending"
 
+    # Pending expenses must not count toward actuals.
     workspace = client.get(f"/api/projects/{project_id}")
     assert workspace.status_code == 200
     rows = workspace.get_json()["budget_vs_actual"]
     materials = next(r for r in rows if r["category"] == "Materials")
     assert float(materials["budget"]) == 40000
+    assert float(materials["actual"]) == 0
+
+    blocked = client.post(
+        f"/api/projects/expenses/{expense_id}/review",
+        json={"status": "Approved"},
+    )
+    assert blocked.status_code == 403
+
+    login(client, "admin@example.com")
+    approved = client.post(
+        f"/api/projects/expenses/{expense_id}/review",
+        json={"status": "Approved"},
+    )
+    assert approved.status_code == 200
+    assert approved.get_json()["expense"]["status"] == "Approved"
+
+    workspace = client.get(f"/api/projects/{project_id}")
+    materials = next(
+        r for r in workspace.get_json()["budget_vs_actual"] if r["category"] == "Materials"
+    )
     assert float(materials["actual"]) == 12500
     assert float(materials["variance"]) == 12500 - 40000
+
+
+def test_budget_revision_requires_sod(client):
+    login(client, "manager@example.com")
+    created = client.post(
+        "/api/projects",
+        json={
+            "name": "Budget Revision",
+            "client_name": "Client",
+            "location": "Lusaka",
+            "budget": 80000,
+            "status": "Active",
+        },
+    )
+    project_id = created.get_json()["project"]["id"]
+
+    # Project create already allocated category shares — first change is a revision.
+    revise = client.put(
+        f"/api/projects/{project_id}/budgets/Labour",
+        json={"amount": 15000},
+    )
+    assert revise.status_code == 200
+    line = revise.get_json()["budget_line"]
+    assert float(line["amount"]) == 16000  # 80000 / 5
+    assert float(line["pending_amount"]) == 15000
+
+    blocked = client.post(
+        f"/api/projects/{project_id}/budgets/Labour/review",
+        json={"status": "Approved"},
+    )
+    assert blocked.status_code == 403
+
+    login(client, "admin@example.com")
+    ok = client.post(
+        f"/api/projects/{project_id}/budgets/Labour/review",
+        json={"status": "Approved"},
+    )
+    assert ok.status_code == 200
+    assert float(ok.get_json()["budget_line"]["amount"]) == 15000
+    assert ok.get_json()["budget_line"]["pending_amount"] is None
 
 
 def test_task_completion_and_milestone_progress(client, app):
@@ -92,7 +167,7 @@ def test_task_completion_and_milestone_progress(client, app):
         json={"status": "Completed"},
     )
     assert updated.status_code == 200
-    assert updated.get_json()["task"]["status"] == "Completed"
+    assert updated.get_json()["task"]["status"] == "Verified"
 
     milestone = client.post(
         "/api/projects/milestones",

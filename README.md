@@ -59,7 +59,7 @@ App: http://127.0.0.1:5173/
 
 | Email | Role | Password |
 |-------|------|----------|
-| admin@example.com | Administrator | Password123! |
+|| Administrator | Password123! |
 | manager@example.com | Project Manager | Password123! |
 | engineer@example.com | Site Engineer | Password123! |
 | worker@example.com | Contractor/Worker | Password123! |
@@ -161,6 +161,12 @@ To migrate existing SQLite *data* (optional for school demos), export/import man
 ## Roles
 
 Administrator · Project Manager · Site Engineer · Contractor/Worker
+
+Administrator is **oversight** (users, settings, project approvals/catalog) and is not a routine site/worker operator.
+
+## Uploads
+
+Files are stored under `backend/uploads/` (logos + documents). Validation checks extension, MIME, path-safe names, size limits, and magic bytes for images/PDF. For production object storage, point `UPLOAD_FOLDER` (or wrap `app.utils.uploads`) without changing domain services.
 
 ## Phases
 

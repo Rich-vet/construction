@@ -69,9 +69,10 @@ def can_manage_project(user: User, project: Project) -> bool:
 
 
 def can_operate_site(user: User, project: Project) -> bool:
-    """Site Engineer operates assigned projects; Admin/PM may also operate."""
-    if user.role_name == ADMINISTRATOR:
-        return True
+    """Site Engineer operates assigned projects; owning PM may also operate.
+
+    Administrators keep view/manage oversight but are not routine site operators.
+    """
     if user.role_name == PROJECT_MANAGER and project.project_manager_id == user.id:
         return True
     if user.role_name == SITE_ENGINEER and project.site_engineer_id == user.id:
@@ -86,7 +87,9 @@ def assert_can_manage(user: User, project: Project) -> None:
 
 def assert_can_operate_site(user: User, project: Project) -> None:
     if not can_operate_site(user, project):
-        raise ProjectAccessError("You can only manage site activities on assigned projects.")
+        raise ProjectAccessError(
+            "You can only manage site activities on projects you are assigned to operate."
+        )
 
 
 def assert_project_editable(project: Project) -> None:

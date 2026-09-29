@@ -72,42 +72,30 @@ export function Sidebar({
       <nav className="sidebar-nav" aria-label="Application modules">
         {sections.map((section) => (
           <div className="nav-section" key={section.label ?? 'main'}>
-            {section.items.map((item) =>
-              item.implemented && item.to ? (
-                <NavLink
-                  key={item.id}
-                  to={item.to}
-                  className={({ isActive }) => {
-                    const dashboardActive =
-                      item.id === 'dashboard' &&
-                      (location.pathname === '/' ||
-                        location.pathname === '/admin' ||
-                        location.pathname === '/pm' ||
-                        location.pathname === '/se' ||
-                        location.pathname === '/worker')
-                    return `nav-item${isActive || dashboardActive ? ' is-active' : ''}`
-                  }}
-                  onClick={onClose}
-                  end={item.to === '/'}
-                >
-                  <i className={`bi ${item.icon}`} aria-hidden="true" />
-                  <span>{item.label}</span>
-                  {item.id === 'notifications' && unreadCount > 0 ? (
-                    <span className="nav-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
-                  ) : null}
-                </NavLink>
-              ) : (
-                <span
-                  key={item.id}
-                  className="nav-item is-disabled"
-                  title="Coming soon"
-                  aria-disabled="true"
-                >
-                  <i className={`bi ${item.icon}`} aria-hidden="true" />
-                  <span>{item.label}</span>
-                </span>
-              ),
-            )}
+            {section.items.map((item) => (
+              <NavLink
+                key={item.id}
+                to={item.to!}
+                className={({ isActive }) => {
+                  const dashboardActive =
+                    item.id === 'dashboard' &&
+                    (location.pathname === '/' ||
+                      location.pathname === '/admin' ||
+                      location.pathname === '/pm' ||
+                      location.pathname === '/se' ||
+                      location.pathname === '/worker')
+                  return `nav-item${isActive || dashboardActive ? ' is-active' : ''}`
+                }}
+                onClick={onClose}
+                end={item.to === '/'}
+              >
+                <i className={`bi ${item.icon}`} aria-hidden="true" />
+                <span>{item.label}</span>
+                {item.id === 'notifications' && unreadCount > 0 ? (
+                  <span className="nav-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                ) : null}
+              </NavLink>
+            ))}
           </div>
         ))}
       </nav>

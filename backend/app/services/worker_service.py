@@ -30,8 +30,11 @@ from app.utils.project_access import (
     projects_query_for,
 )
 from app.utils.uploads import UploadError, save_project_document
-
-WORKER_TASK_STATUSES = ("Pending", "In Progress", "Completed")
+from app.utils.workflow import (
+    TASK_WORKER_STATUSES,
+    normalize_task_status,
+    worker_allowed_statuses_for,
+)
 
 
 class WorkerServiceError(Exception):
@@ -74,14 +77,15 @@ def worker_dashboard(actor: User) -> dict:
     today = date.today()
     soon = today + timedelta(days=7)
 
-    open_tasks = [t for t in tasks if t.status in {"Pending", "In Progress"}]
+    open_statuses = {"Pending", "In Progress", "Ready for Review"}
+    open_tasks = [t for t in tasks if normalize_task_status(t.status) in open_statuses]
     due_soon = [
         t
         for t in open_tasks
         if t.due_date is not None and today <= t.due_date <= soon
     ]
     overdue = [t for t in open_tasks if t.due_date is not None and t.due_date < today]
-    completed = [t for t in tasks if t.status == "Completed"]
+    completed = [t for t in tasks if normalize_task_status(t.status) == "Verified"]
 
     unread = (
         db.session.scalar(
@@ -158,26 +162,32 @@ def get_my_task(actor: User, task_id: int) -> dict:
             .order_by(Document.created_at.desc())
         ).unique()
     ]
+    allowed = worker_allowed_statuses_for(task)
     return {
         "task": task.to_dict(),
         "comments": [c.to_dict() for c in task.comments],
         "evidence": evidence,
-        "can_update": task.status != "Cancelled",
-        "allowed_statuses": list(WORKER_TASK_STATUSES),
+        "can_update": bool(allowed),
+        "allowed_statuses": allowed,
+        "can_verify": False,
     }
 
 
 def update_my_task_status(actor: User, task_id: int, data: dict) -> Task:
     task = _require_own_task(actor, task_id)
     assert_project_editable(task.project)
-    if task.status == "Cancelled":
-        raise WorkerServiceError("Cancelled tasks cannot be updated.")
+    if normalize_task_status(task.status) in {"Cancelled", "Verified"}:
+        raise WorkerServiceError("This task can no longer be updated.")
 
     status = (data.get("status") or "").strip()
-    if status not in WORKER_TASK_STATUSES:
-        raise WorkerServiceError("You can set status to Pending, In Progress, or Completed only.")
-    if status not in TASK_STATUSES:
-        raise WorkerServiceError("Invalid task status.")
+    # Legacy clients sending Completed mean Ready for Review (worker cannot officially complete).
+    if status == "Completed":
+        status = "Ready for Review"
+    allowed = worker_allowed_statuses_for(task)
+    if status not in allowed:
+        raise WorkerServiceError(
+            "You can set status to Pending, In Progress, or Ready for Review only."
+        )
 
     previous = task.status
     task.status = status
@@ -189,8 +199,7 @@ def update_my_task_status(actor: User, task_id: int, data: dict) -> Task:
         details=f"{previous} → {status}",
     )
 
-    # Notify project manager / site engineer of completion
-    if status == "Completed" and previous != "Completed":
+    if status == "Ready for Review" and previous != "Ready for Review":
         recipients = {
             task.project.project_manager_id,
             task.project.site_engineer_id,
@@ -199,8 +208,8 @@ def update_my_task_status(actor: User, task_id: int, data: dict) -> Task:
             if uid and uid != actor.id:
                 notify_user(
                     user_id=uid,
-                    title="Task completed",
-                    message=f'{actor.full_name} completed "{task.name}" on {task.project.name}.',
+                    title="Task ready for review",
+                    message=f'{actor.full_name} marked "{task.name}" ready for review on {task.project.name}.',
                     link=f"/projects/{task.project_id}",
                 )
     db.session.commit()
@@ -329,6 +338,8 @@ def list_my_documents(actor: User) -> list[dict]:
 
 def worker_meta() -> dict:
     return {
-        "task_statuses": list(WORKER_TASK_STATUSES),
-        "all_task_statuses": list(TASK_STATUSES),
+        "task_statuses": list(TASK_WORKER_STATUSES),
+        "all_task_statuses": [
+            s for s in TASK_STATUSES if s != "Completed"
+        ],
     }

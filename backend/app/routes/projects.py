@@ -203,7 +203,29 @@ def upsert_budget(project_id: int, category: str):
         )
     except Exception as exc:
         return _handle(exc)
-    return jsonify({"message": "Budget updated.", "budget_line": line.to_dict()})
+    message = (
+        "Budget revision proposed."
+        if line.pending_amount is not None
+        else "Budget updated."
+    )
+    return jsonify({"message": message, "budget_line": line.to_dict()})
+
+
+@projects_bp.post("/<int:project_id>/budgets/<category>/review")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+@csrf.exempt
+def review_budget(project_id: int, category: str):
+    _require_csrf()
+    payload = request.get_json(silent=True) or {}
+    decision = payload.get("status") or payload.get("decision")
+    try:
+        line = project_service.review_budget_revision(
+            _actor(), project_id, category, decision
+        )
+    except Exception as exc:
+        return _handle(exc)
+    label = str(decision or "reviewed").strip().lower()
+    return jsonify({"message": f"Budget revision {label}.", "budget_line": line.to_dict()})
 
 
 @projects_bp.post("/expenses")
@@ -215,7 +237,32 @@ def create_expense():
         expense = project_service.create_expense(_actor(), request.get_json(silent=True) or {})
     except Exception as exc:
         return _handle(exc)
-    return jsonify({"message": "Expense recorded.", "expense": expense.to_dict()}), 201
+    return jsonify(
+        {"message": "Expense submitted for approval.", "expense": expense.to_dict()}
+    ), 201
+
+
+@projects_bp.post("/expenses/<int:expense_id>/review")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+@csrf.exempt
+def review_expense(expense_id: int):
+    _require_csrf()
+    payload = request.get_json(silent=True) or {}
+    try:
+        expense = project_service.review_expense(
+            _actor(),
+            expense_id,
+            payload.get("status"),
+            payload.get("notes"),
+        )
+    except Exception as exc:
+        return _handle(exc)
+    return jsonify(
+        {
+            "message": f"Expense {str(expense.status).lower()}.",
+            "expense": expense.to_dict(),
+        }
+    )
 
 
 @projects_bp.get("/material-requests")
@@ -232,7 +279,7 @@ def list_material_requests():
     items = []
     if ids:
         items = [
-            r.to_dict()
+            project_service.serialize_material_request(actor, r)
             for r in db.session.scalars(
                 select(MaterialRequest)
                 .options(
@@ -276,7 +323,22 @@ def review_request(request_id: int):
         )
     except Exception as exc:
         return _handle(exc)
-    return jsonify({"message": f"Request {req.status.lower()}.", "request": req.to_dict()})
+    return jsonify({
+        "message": f"Request {req.status.lower()}.",
+        "request": project_service.serialize_material_request(_actor(), req),
+    })
+
+
+@projects_bp.post("/tasks/<int:task_id>/verify")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER)
+@csrf.exempt
+def verify_task(task_id: int):
+    _require_csrf()
+    try:
+        task = project_service.verify_task(_actor(), task_id)
+    except Exception as exc:
+        return _handle(exc)
+    return jsonify({"message": "Task verified.", "task": task.to_dict()})
 
 
 @projects_bp.post("/quotations")

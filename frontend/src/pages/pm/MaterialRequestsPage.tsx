@@ -169,7 +169,7 @@ export function MaterialRequestsPage() {
                   <td>{String(r.requested_by_name)}</td>
                   <td>{String(r.status)}</td>
                   <td className="table-actions">
-                    {canReview && r.status === 'Pending' ? (
+                    {canReview && r.can_approve !== false && r.status === 'Pending' ? (
                       <>
                         <Button
                           size="sm"

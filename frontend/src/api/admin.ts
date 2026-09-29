@@ -159,3 +159,91 @@ export function markNotificationRead(id: number) {
     { method: 'POST', csrf: true },
   )
 }
+
+export type EmployeeRecord = {
+  id: number
+  full_name: string
+  employee_code: string | null
+  phone: string | null
+  email: string | null
+  position: string | null
+  skills: string | null
+  status: string
+}
+
+export type ContractorRecord = {
+  id: number
+  name: string
+  specialty: string | null
+  phone: string | null
+  email: string | null
+  status: string
+  user_id: number | null
+  user_name: string | null
+}
+
+export function fetchEmployees(params: { search?: string; status?: string; page?: number } = {}) {
+  const q = new URLSearchParams()
+  if (params.search) q.set('search', params.search)
+  if (params.status) q.set('status', params.status)
+  q.set('page', String(params.page ?? 1))
+  return apiRequest<Paginated<EmployeeRecord>>(`/api/admin/employees?${q.toString()}`)
+}
+
+export function fetchEmployeeMeta() {
+  return apiRequest<{ statuses: string[] }>('/api/admin/employees/meta')
+}
+
+export function fetchEmployee(id: number) {
+  return apiRequest<{ employee: EmployeeRecord }>(`/api/admin/employees/${id}`)
+}
+
+export function createEmployee(payload: Record<string, unknown>) {
+  return apiRequest<{ message: string; employee: EmployeeRecord }>('/api/admin/employees', {
+    method: 'POST',
+    body: payload,
+    csrf: true,
+  })
+}
+
+export function updateEmployee(id: number, payload: Record<string, unknown>) {
+  return apiRequest<{ message: string; employee: EmployeeRecord }>(`/api/admin/employees/${id}`, {
+    method: 'PUT',
+    body: payload,
+    csrf: true,
+  })
+}
+
+export function fetchContractors(params: { search?: string; status?: string; page?: number } = {}) {
+  const q = new URLSearchParams()
+  if (params.search) q.set('search', params.search)
+  if (params.status) q.set('status', params.status)
+  q.set('page', String(params.page ?? 1))
+  return apiRequest<Paginated<ContractorRecord>>(`/api/admin/contractors?${q.toString()}`)
+}
+
+export function fetchContractorMeta() {
+  return apiRequest<{
+    statuses: string[]
+    linkable_users: Array<{ id: number; full_name: string; email: string; role: string }>
+  }>('/api/admin/contractors/meta')
+}
+
+export function fetchContractor(id: number) {
+  return apiRequest<{ contractor: ContractorRecord }>(`/api/admin/contractors/${id}`)
+}
+
+export function createContractor(payload: Record<string, unknown>) {
+  return apiRequest<{ message: string; contractor: ContractorRecord }>('/api/admin/contractors', {
+    method: 'POST',
+    body: payload,
+    csrf: true,
+  })
+}
+
+export function updateContractor(id: number, payload: Record<string, unknown>) {
+  return apiRequest<{ message: string; contractor: ContractorRecord }>(
+    `/api/admin/contractors/${id}`,
+    { method: 'PUT', body: payload, csrf: true },
+  )
+}

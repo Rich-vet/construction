@@ -94,6 +94,7 @@ class Contractor(db.Model):
             "email": self.email,
             "status": self.status,
             "user_id": self.user_id,
+            "user_name": self.user.full_name if self.user else None,
         }
 
 

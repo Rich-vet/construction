@@ -69,19 +69,6 @@ export function TaskDetailPage() {
     }
   }
 
-  const markComplete = async () => {
-    if (!canUpdate || !allowedStatuses.includes('Completed')) return
-    setError(null)
-    setMessage(null)
-    try {
-      await updateMyTaskStatus(taskId, 'Completed')
-      setMessage('Task marked complete.')
-      load()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Unable to mark complete.')
-    }
-  }
-
   const onComment = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -144,7 +131,22 @@ export function TaskDetailPage() {
 
   const priority = String(task.priority || 'Medium')
   const progress = taskProgressPercent(task.status)
-  const isComplete = String(task.status) === 'Completed'
+  const isComplete =
+    String(task.status) === 'Verified' || String(task.status) === 'Completed'
+  const canMarkReady = canUpdate && allowedStatuses.includes('Ready for Review') && !isComplete
+
+  const markReadyForReview = async () => {
+    if (!canMarkReady) return
+    setError(null)
+    setMessage(null)
+    try {
+      await updateMyTaskStatus(taskId, 'Ready for Review')
+      setMessage('Task marked ready for review.')
+      load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Unable to submit for review.')
+    }
+  }
 
   return (
     <AppShell>
@@ -376,7 +378,7 @@ export function TaskDetailPage() {
           ) : null}
           <button
             type="button"
-            className="btn btn-outline-dark"
+            className="btn btn-outline-secondary"
             onClick={() => {
               setShowProgressForm(false)
               setShowNoteForm(true)
@@ -384,9 +386,9 @@ export function TaskDetailPage() {
           >
             Add Note
           </button>
-          {canUpdate && !isComplete && allowedStatuses.includes('Completed') ? (
-            <button type="button" className="btn btn-success" onClick={() => void markComplete()}>
-              Mark Complete
+          {canMarkReady ? (
+            <button type="button" className="btn btn-success" onClick={() => void markReadyForReview()}>
+              Mark Ready for Review
             </button>
           ) : null}
         </div>

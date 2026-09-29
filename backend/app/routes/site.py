@@ -33,7 +33,7 @@ def _handle(exc: Exception):
 
 
 @site_bp.get("/dashboard")
-@roles_required(SITE_ENGINEER, ADMINISTRATOR)
+@roles_required(SITE_ENGINEER)
 def dashboard():
     return jsonify(site_service.se_dashboard(_actor()))
 
@@ -277,6 +277,19 @@ def create_progress():
     except Exception as exc:
         return _handle(exc)
     return jsonify({"message": "Progress update submitted.", "update": update.to_dict()}), 201
+
+
+@site_bp.post("/site-diary")
+@roles_required(*SITE_ROLES)
+@csrf.exempt
+def create_diary():
+    """Unified site diary (dual-writes report + progress)."""
+    _require_csrf()
+    try:
+        result = site_service.create_site_diary(_actor(), request.get_json(silent=True) or {})
+    except Exception as exc:
+        return _handle(exc)
+    return jsonify({"message": "Site diary submitted.", **result}), 201
 
 
 @site_bp.get("/site-reports")

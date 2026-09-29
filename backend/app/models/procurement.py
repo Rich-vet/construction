@@ -28,8 +28,8 @@ class MaterialRequest(db.Model):
     requested_by = db.relationship("User", foreign_keys=[requested_by_id])
     reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id])
 
-    def to_dict(self) -> dict:
-        return {
+    def to_dict(self, *, can_approve: bool | None = None) -> dict:
+        data = {
             "id": self.id,
             "project_id": self.project_id,
             "project_name": self.project.name if self.project else None,
@@ -39,10 +39,14 @@ class MaterialRequest(db.Model):
             "reason": self.reason,
             "request_date": self.request_date.isoformat() if self.request_date else None,
             "status": self.status,
+            "requested_by_id": self.requested_by_id,
             "requested_by_name": self.requested_by.full_name if self.requested_by else None,
             "reviewed_by_name": self.reviewed_by.full_name if self.reviewed_by else None,
             "review_notes": self.review_notes,
         }
+        if can_approve is not None:
+            data["can_approve"] = can_approve
+        return data
 
 
 class Supplier(db.Model):

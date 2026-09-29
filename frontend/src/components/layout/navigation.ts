@@ -22,21 +22,27 @@ export const navigation: NavSection[] = [
     items: [
       { id: 'projects', label: 'Projects', icon: 'bi-building', to: '/projects', implemented: true },
       { id: 'tasks', label: 'My Tasks', icon: 'bi-list-task', to: '/tasks', implemented: true },
-      { id: 'milestones', label: 'Milestones', icon: 'bi-flag' },
+      {
+        id: 'milestones',
+        label: 'Milestones',
+        icon: 'bi-flag',
+        to: '/milestones',
+        implemented: true,
+      },
     ],
   },
   {
     label: 'People',
     items: [
-      { id: 'employees', label: 'Employees', icon: 'bi-people' },
-      { id: 'contractors', label: 'Contractors', icon: 'bi-person-badge' },
+      { id: 'employees', label: 'Employees', icon: 'bi-people', to: '/employees', implemented: true },
+      {
+        id: 'contractors',
+        label: 'Contractors',
+        icon: 'bi-person-badge',
+        to: '/contractors',
+        implemented: true,
+      },
       { id: 'attendance', label: 'Attendance', icon: 'bi-calendar-check', to: '/attendance', implemented: true },
-    ],
-  },
-  {
-    label: 'My Work',
-    items: [
-      { id: 'progress', label: 'Progress', icon: 'bi-graph-up', to: '/progress', implemented: true },
     ],
   },
   {
@@ -49,8 +55,8 @@ export const navigation: NavSection[] = [
   {
     label: 'Finance',
     items: [
-      { id: 'budgets', label: 'Budgets', icon: 'bi-wallet2' },
-      { id: 'expenses', label: 'Expenses', icon: 'bi-cash-stack' },
+      { id: 'budgets', label: 'Budgets', icon: 'bi-wallet2', to: '/budgets', implemented: true },
+      { id: 'expenses', label: 'Expenses', icon: 'bi-cash-stack', to: '/expenses', implemented: true },
     ],
   },
   {
@@ -69,10 +75,11 @@ export const navigation: NavSection[] = [
     ],
   },
   {
-    label: 'Progress',
+    label: 'Site',
     items: [
-      { id: 'progress_updates', label: 'Progress Updates', icon: 'bi-graph-up-arrow', to: '/progress-updates', implemented: true },
-      { id: 'site_reports', label: 'Site Reports', icon: 'bi-journal-text', to: '/site-reports', implemented: true },
+      { id: 'site_diary', label: 'Site Diary', icon: 'bi-journal-richtext', to: '/site-diary', implemented: true },
+      { id: 'progress_updates', label: 'Progress Updates', icon: 'bi-graph-up-arrow', to: '/site-diary', implemented: true },
+      { id: 'site_reports', label: 'Site Reports', icon: 'bi-journal-text', to: '/site-diary', implemented: true },
     ],
   },
   {
@@ -89,7 +96,6 @@ export const navigation: NavSection[] = [
     label: 'System',
     items: [
       { id: 'users', label: 'Users', icon: 'bi-person-gear', to: '/users', implemented: true },
-      { id: 'company', label: 'Company', icon: 'bi-buildings', to: '/company', implemented: true },
       {
         id: 'notifications',
         label: 'Notifications',
@@ -114,7 +120,10 @@ export function filterNavigation(allowed: string[]): NavSection[] {
   return navigation
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => allowedSet.has(item.id)),
+      // Only show real destinations — never grayed-out / coming-soon placeholders.
+      items: section.items.filter(
+        (item) => allowedSet.has(item.id) && item.implemented && Boolean(item.to),
+      ),
     }))
     .filter((section) => section.items.length > 0)
 }

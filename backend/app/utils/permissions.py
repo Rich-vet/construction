@@ -1,4 +1,8 @@
-"""Role-based navigation permissions for the SPA sidebar."""
+"""Role-based navigation permissions for the SPA sidebar.
+
+Only include keys that map to implemented frontend routes.
+Unimplemented modules must not appear (even disabled) in the sidebar.
+"""
 
 from __future__ import annotations
 
@@ -9,15 +13,17 @@ from app.utils.roles import (
     SITE_ENGINEER,
 )
 
-# Keys match frontend navigation item ids.
+# Keys match frontend navigation item ids (implemented routes only).
 ROLE_NAV: dict[str, set[str]] = {
     ADMINISTRATOR: {
         "dashboard",
         "users",
-        "company",
-        "projects",
         "employees",
         "contractors",
+        "projects",
+        "milestones",
+        "budgets",
+        "expenses",
         "materials",
         "equipment",
         "material_requests",
@@ -30,21 +36,17 @@ ROLE_NAV: dict[str, set[str]] = {
     PROJECT_MANAGER: {
         "dashboard",
         "projects",
-        "tasks",
         "milestones",
-        "employees",
-        "contractors",
+        "budgets",
+        "expenses",
         "attendance",
         "materials",
         "equipment",
-        "budgets",
-        "expenses",
         "material_requests",
         "quotations",
         "purchase_orders",
         "deliveries",
-        "progress_updates",
-        "site_reports",
+        "site_diary",
         "documents",
         "reports",
         "notifications",
@@ -53,16 +55,11 @@ ROLE_NAV: dict[str, set[str]] = {
     SITE_ENGINEER: {
         "dashboard",
         "projects",
-        "tasks",
-        "milestones",
-        "employees",
-        "contractors",
         "attendance",
         "materials",
         "equipment",
         "material_requests",
-        "progress_updates",
-        "site_reports",
+        "site_diary",
         "documents",
         "notifications",
         "activity_log",
@@ -71,7 +68,6 @@ ROLE_NAV: dict[str, set[str]] = {
         "dashboard",
         "tasks",
         "attendance",
-        "progress",
         "notifications",
     },
 }

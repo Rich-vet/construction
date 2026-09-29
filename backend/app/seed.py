@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.extensions import db
 from app.models import Role, User
@@ -93,9 +93,69 @@ def seed_company_profile() -> None:
         db.session.commit()
 
 
+def seed_people_registry() -> None:
+    """Sample employees/contractors so Admin dashboard counts are meaningful."""
+    from app.models import Contractor, Employee
+
+    if db.session.scalar(select(func.count()).select_from(Employee)) == 0:
+        db.session.add_all(
+            [
+                Employee(
+                    full_name="Chanda Phiri",
+                    employee_code="EMP-001",
+                    phone="+260977100001",
+                    email="chanda.phiri@example.com",
+                    position="Quantity Surveyor",
+                    skills="BOQ, costing",
+                    status="Active",
+                ),
+                Employee(
+                    full_name="Mwansa Banda",
+                    employee_code="EMP-002",
+                    phone="+260977100002",
+                    email="mwansa.banda@example.com",
+                    position="Safety Officer",
+                    skills="HSE, inductions",
+                    status="Active",
+                ),
+                Employee(
+                    full_name="Thandiwe Zulu",
+                    employee_code="EMP-003",
+                    phone="+260977100003",
+                    position="Store Keeper",
+                    skills="inventory",
+                    status="On Leave",
+                ),
+            ]
+        )
+
+    if db.session.scalar(select(func.count()).select_from(Contractor)) == 0:
+        worker = db.session.scalar(select(User).where(User.email == "worker@example.com"))
+        db.session.add_all(
+            [
+                Contractor(
+                    name="Copperbelt Labour Co-op",
+                    specialty="Formwork & concrete",
+                    phone="+260966200001",
+                    email="labour@example.com",
+                    status="Active",
+                    user_id=worker.id if worker else None,
+                ),
+                Contractor(
+                    name="Ndola Steel Fixers",
+                    specialty="Rebar",
+                    phone="+260966200002",
+                    status="Active",
+                ),
+            ]
+        )
+    db.session.commit()
+
+
 def run_seed(*, with_demo_scenario: bool = True) -> dict:
     seed_demo_users()
     seed_company_profile()
+    seed_people_registry()
     from app.services.project_service import ensure_demo_materials
     from app.services.site_service import ensure_demo_equipment
 

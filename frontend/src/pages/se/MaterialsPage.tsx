@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Alert, Button, Form, Spinner, Table } from 'react-bootstrap'
+import { Link } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
 import { ApiError } from '../../api/auth'
-import { createMaterialRequest, fetchMaterialRequests } from '../../api/projects'
+import { fetchMaterialRequests } from '../../api/projects'
 import {
   createMaterial,
   fetchMaterialTransactions,
@@ -22,8 +23,6 @@ export function MaterialsPage() {
   const [quantity, setQuantity] = useState('')
   const [txType, setTxType] = useState('USAGE')
   const [notes, setNotes] = useState('')
-  const [reqQty, setReqQty] = useState('')
-  const [reqReason, setReqReason] = useState('')
   const [newName, setNewName] = useState('')
   const [newUnit, setNewUnit] = useState('unit')
   const [newMin, setNewMin] = useState('0')
@@ -95,26 +94,6 @@ export function MaterialsPage() {
       load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Unable to create material.')
-    }
-  }
-
-  const onRequest = async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setMessage(null)
-    try {
-      await createMaterialRequest({
-        project_id: Number(projectId),
-        material_id: Number(materialId),
-        quantity: Number(reqQty),
-        reason: reqReason || null,
-      })
-      setMessage('Material request submitted to the project manager.')
-      setReqQty('')
-      setReqReason('')
-      load()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Unable to submit request.')
     }
   }
 
@@ -214,32 +193,19 @@ export function MaterialsPage() {
         </section>
 
         <section className="panel-card">
-          <h2 className="section-title">Request materials</h2>
-          <Form className="form-grid" onSubmit={(e) => void onRequest(e)}>
-            <Form.Group>
-              <Form.Label>Quantity</Form.Label>
-              <Form.Control
-                type="number"
-                min="0.01"
-                step="0.01"
-                required
-                value={reqQty}
-                onChange={(e) => setReqQty(e.target.value)}
-              />
-            </Form.Group>
-            <Form.Group className="form-grid__full">
-              <Form.Label>Reason</Form.Label>
-              <Form.Control value={reqReason} onChange={(e) => setReqReason(e.target.value)} />
-            </Form.Group>
-            <div className="form-grid__full">
-              <Button type="submit" variant="outline-primary">
-                Submit request
-              </Button>
-            </div>
-          </Form>
-          <p className="text-muted small mt-2 mb-0">
-            Uses the project and material selected in the usage form above.
+          <h2 className="section-title">Material requests</h2>
+          <p className="empty-hint mb-3">
+            Create and review material requests in the authoritative Material Requests workflow — not
+            from stock movements.
           </p>
+          <Link to="/material-requests" className="btn btn-primary">
+            Open Material Requests
+          </Link>
+          {requests.length > 0 ? (
+            <p className="text-muted small mt-3 mb-0">
+              {requests.length} request(s) visible for your projects (status list below).
+            </p>
+          ) : null}
         </section>
       </div>
 

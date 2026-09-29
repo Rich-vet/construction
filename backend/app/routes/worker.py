@@ -17,9 +17,6 @@ from app.utils.roles import (
 
 worker_bp = Blueprint("worker", __name__)
 
-# Workers primary; managers may inspect via elevated access where noted.
-WORKER_ROLES = (CONTRACTOR_WORKER, ADMINISTRATOR)
-
 
 def _require_csrf() -> None:
     if current_app.config.get("WTF_CSRF_ENABLED", True):
@@ -39,32 +36,32 @@ def _handle(exc: Exception):
 
 
 @worker_bp.get("/dashboard")
-@roles_required(CONTRACTOR_WORKER, ADMINISTRATOR)
+@roles_required(CONTRACTOR_WORKER)
 def dashboard():
     return jsonify(worker_service.worker_dashboard(_actor()))
 
 
 @worker_bp.get("/meta")
-@roles_required(CONTRACTOR_WORKER, ADMINISTRATOR)
+@roles_required(CONTRACTOR_WORKER)
 def meta():
     return jsonify(worker_service.worker_meta())
 
 
 @worker_bp.get("/projects")
-@roles_required(CONTRACTOR_WORKER, ADMINISTRATOR)
+@roles_required(CONTRACTOR_WORKER)
 def list_projects():
     return jsonify({"items": worker_service.list_my_projects(_actor())})
 
 
 @worker_bp.get("/tasks")
-@roles_required(CONTRACTOR_WORKER, ADMINISTRATOR)
+@roles_required(CONTRACTOR_WORKER)
 def list_tasks():
     status = request.args.get("status")
     return jsonify({"items": worker_service.list_my_tasks(_actor(), status=status)})
 
 
 @worker_bp.get("/tasks/<int:task_id>")
-@roles_required(CONTRACTOR_WORKER, ADMINISTRATOR)
+@roles_required(CONTRACTOR_WORKER)
 def task_detail(task_id: int):
     try:
         payload = worker_service.get_my_task(_actor(), task_id)
@@ -74,7 +71,7 @@ def task_detail(task_id: int):
 
 
 @worker_bp.put("/tasks/<int:task_id>/status")
-@roles_required(CONTRACTOR_WORKER, ADMINISTRATOR)
+@roles_required(CONTRACTOR_WORKER)
 @csrf.exempt
 def update_task_status(task_id: int):
     _require_csrf()
@@ -88,7 +85,7 @@ def update_task_status(task_id: int):
 
 
 @worker_bp.post("/tasks/<int:task_id>/comments")
-@roles_required(CONTRACTOR_WORKER, ADMINISTRATOR)
+@roles_required(CONTRACTOR_WORKER)
 @csrf.exempt
 def add_comment(task_id: int):
     _require_csrf()
@@ -101,7 +98,7 @@ def add_comment(task_id: int):
 
 
 @worker_bp.post("/tasks/<int:task_id>/evidence")
-@roles_required(CONTRACTOR_WORKER, ADMINISTRATOR)
+@roles_required(CONTRACTOR_WORKER)
 @csrf.exempt
 def upload_evidence(task_id: int):
     _require_csrf()
@@ -118,13 +115,13 @@ def upload_evidence(task_id: int):
 
 
 @worker_bp.get("/attendance")
-@roles_required(CONTRACTOR_WORKER, ADMINISTRATOR)
+@roles_required(CONTRACTOR_WORKER)
 def my_attendance():
     return jsonify({"items": worker_service.list_my_attendance(_actor())})
 
 
 @worker_bp.get("/documents")
-@roles_required(CONTRACTOR_WORKER, ADMINISTRATOR)
+@roles_required(CONTRACTOR_WORKER)
 def my_documents():
     return jsonify({"items": worker_service.list_my_documents(_actor())})
 

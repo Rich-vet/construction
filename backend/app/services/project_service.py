@@ -50,6 +50,18 @@ from app.utils.project_access import (
     projects_query_for,
 )
 from app.utils.roles import ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER
+from app.utils.workflow import (
+    MR_REVIEW_STATUSES,
+    assert_can_approve_budget_revision,
+    assert_can_approve_expense,
+    assert_can_approve_material_request,
+    assert_can_verify_task,
+    can_approve_budget_revision,
+    can_approve_expense,
+    can_approve_material_request,
+    can_verify_task,
+    normalize_task_status,
+)
 
 
 class ProjectServiceError(Exception):
@@ -279,7 +291,10 @@ def project_workspace(actor: User, project_id: int) -> dict:
 
     actual = float(
         db.session.scalar(
-            select(func.coalesce(func.sum(Expense.amount), 0)).where(Expense.project_id == project.id)
+            select(func.coalesce(func.sum(Expense.amount), 0)).where(
+                Expense.project_id == project.id,
+                Expense.status == "Approved",
+            )
         )
         or 0
     )
@@ -295,20 +310,31 @@ def project_workspace(actor: User, project_id: int) -> dict:
 
     budget_vs_actual = []
     for category in BUDGET_CATEGORIES:
-        b = next((x.amount for x in project.budget_lines if x.category == category), 0)
-        a = sum((x.amount for x in project.expenses if x.category == category), Decimal("0"))
+        line = next((x for x in project.budget_lines if x.category == category), None)
+        b = line.amount if line else 0
+        a = sum(
+            (
+                x.amount
+                for x in project.expenses
+                if x.category == category and (x.status or "Pending") == "Approved"
+            ),
+            Decimal("0"),
+        )
         budget_amt = float(b or 0)
         actual_amt = float(a or 0)
         variance = actual_amt - budget_amt
-        budget_vs_actual.append(
-            {
-                "category": category,
-                "budget": budget_amt,
-                "actual": actual_amt,
-                "variance": variance,
-                "status": "over" if variance > 0 else "under" if variance < 0 else "on_track",
-            }
-        )
+        row = {
+            "category": category,
+            "budget": budget_amt,
+            "actual": actual_amt,
+            "variance": variance,
+            "status": "over" if variance > 0 else "under" if variance < 0 else "on_track",
+            "pending_amount": float(line.pending_amount) if line and line.pending_amount is not None else None,
+            "has_pending_revision": bool(line and line.pending_amount is not None),
+            "can_approve_revision": can_approve_budget_revision(actor, line) if line else False,
+            "budget_line_id": line.id if line else None,
+        }
+        budget_vs_actual.append(row)
 
     return {
         "project": project.to_dict(),
@@ -320,13 +346,27 @@ def project_workspace(actor: User, project_id: int) -> dict:
             "remaining": budget_total - actual,
         },
         "members": [m.to_dict() for m in project.members],
-        "tasks": [t.to_dict() for t in project.tasks],
+        "tasks": [
+            {
+                **t.to_dict(),
+                "can_verify": can_verify_task(actor, t),
+            }
+            for t in project.tasks
+        ],
         "milestones": [m.to_dict() for m in project.milestones],
-        "budget_lines": [b.to_dict() for b in project.budget_lines],
-        "expenses": [e.to_dict() for e in project.expenses],
+        "budget_lines": [
+            {
+                **b.to_dict(),
+                "can_approve_revision": can_approve_budget_revision(actor, b),
+            }
+            for b in project.budget_lines
+        ],
+        "expenses": [
+            e.to_dict(can_approve=can_approve_expense(actor, e)) for e in project.expenses
+        ],
         "budget_vs_actual": budget_vs_actual,
         "material_requests": [
-            r.to_dict()
+            r.to_dict(can_approve=can_approve_material_request(actor, r))
             for r in db.session.scalars(
                 select(MaterialRequest)
                 .options(joinedload(MaterialRequest.material), joinedload(MaterialRequest.requested_by))
@@ -462,7 +502,19 @@ def update_task(actor: User, task_id: int, data: dict) -> Task:
         task.priority = priority
     if "status" in data:
         status = data["status"]
-        if status not in TASK_STATUSES:
+        if status == "Completed":
+            status = "Verified"
+        if status not in TASK_STATUSES and status != "Verified":
+            raise ProjectServiceError("Invalid task status.")
+        # PM may set planning statuses; prefer Verified over legacy Completed.
+        allowed_pm = {
+            "Pending",
+            "In Progress",
+            "Ready for Review",
+            "Verified",
+            "Cancelled",
+        }
+        if status not in allowed_pm:
             raise ProjectServiceError("Invalid task status.")
         task.status = status
     if "start_date" in data:
@@ -601,26 +653,83 @@ def remove_project_member(actor: User, member_id: int) -> None:
 
 
 def upsert_budget_line(actor: User, project_id: int, category: str, amount) -> BudgetLine:
+    """Set or propose a budget amount.
+
+    First allocation for a category applies immediately. Later changes become a
+    pending revision that another manager/admin must approve (SoD).
+    """
     project = get_accessible_project(actor, project_id)
     assert_can_manage(actor, project)
     assert_project_editable(project)
     if category not in BUDGET_CATEGORIES:
         raise ProjectServiceError("Invalid budget category.")
     money = _as_money(amount)
+    if money < 0:
+        raise ProjectServiceError("Budget amount cannot be negative.")
     line = db.session.scalar(
         select(BudgetLine).where(BudgetLine.project_id == project.id, BudgetLine.category == category)
     )
     if line is None:
         line = BudgetLine(project_id=project.id, category=category, amount=money)
         db.session.add(line)
+        action = f"Set {category} budget"
+        details = str(money)
+    elif Decimal(str(line.amount or 0)) == money and line.pending_amount is None:
+        return line
     else:
-        line.amount = money
+        line.pending_amount = money
+        line.pending_by_id = actor.id
+        action = f"Proposed {category} budget revision"
+        details = f"{line.amount} → {money} (pending)"
     log_activity(
         actor=actor,
-        action=f"Updated {category} budget",
+        action=action,
         entity_type="project",
         entity_id=project.id,
-        details=str(money),
+        details=details,
+    )
+    db.session.commit()
+    return line
+
+
+def review_budget_revision(
+    actor: User, project_id: int, category: str, decision: str
+) -> BudgetLine:
+    """Approve or reject a pending budget revision (SoD)."""
+    project = get_accessible_project(actor, project_id)
+    line = db.session.scalar(
+        select(BudgetLine)
+        .options(joinedload(BudgetLine.project))
+        .where(BudgetLine.project_id == project.id, BudgetLine.category == category)
+    )
+    if line is None:
+        raise ProjectServiceError("Budget line not found.", status_code=404)
+    try:
+        assert_can_approve_budget_revision(actor, line)
+    except ProjectAccessError as exc:
+        raise ProjectServiceError(exc.message, status_code=exc.status_code) from exc
+
+    decision_n = (decision or "").strip().title()
+    if decision_n not in {"Approved", "Rejected"}:
+        raise ProjectServiceError("Decision must be Approved or Rejected.")
+
+    previous = line.amount
+    proposed = line.pending_amount
+    if decision_n == "Approved":
+        line.amount = proposed
+        action = f"Approved {category} budget revision"
+        details = f"{previous} → {proposed}"
+    else:
+        action = f"Rejected {category} budget revision"
+        details = f"Kept {previous}; rejected {proposed}"
+    line.pending_amount = None
+    line.pending_by_id = None
+    log_activity(
+        actor=actor,
+        action=action,
+        entity_type="project",
+        entity_id=project.id,
+        details=details,
     )
     db.session.commit()
     return line
@@ -648,16 +757,56 @@ def create_expense(actor: User, data: dict) -> Expense:
         expense_date=expense_date,
         payee=(data.get("payee") or "").strip() or None,
         payment_method=(data.get("payment_method") or "").strip() or None,
+        status="Pending",
         recorded_by_id=actor.id,
     )
     db.session.add(expense)
     log_activity(
         actor=actor,
-        action=f"Recorded expense {amount}",
+        action=f"Submitted expense {amount} for approval",
         entity_type="expense",
         entity_id=None,
         details=f"{project.name}: {description}",
     )
+    db.session.commit()
+    return expense
+
+
+def review_expense(actor: User, expense_id: int, status: str, notes: str | None = None) -> Expense:
+    expense = db.session.scalar(
+        select(Expense)
+        .options(joinedload(Expense.project), joinedload(Expense.recorded_by))
+        .where(Expense.id == expense_id)
+    )
+    if expense is None:
+        raise ProjectServiceError("Expense not found.", status_code=404)
+    try:
+        assert_can_approve_expense(actor, expense)
+    except ProjectAccessError as exc:
+        raise ProjectServiceError(exc.message, status_code=exc.status_code) from exc
+
+    decision = (status or "").strip().title()
+    if decision not in {"Approved", "Rejected"}:
+        raise ProjectServiceError("Review status must be Approved or Rejected.")
+
+    previous = expense.status
+    expense.status = decision
+    expense.reviewed_by_id = actor.id
+    expense.review_notes = (notes or "").strip() or None
+    log_activity(
+        actor=actor,
+        action=f"{decision} expense",
+        entity_type="expense",
+        entity_id=expense.id,
+        details=f"{previous} → {decision}; {expense.description}",
+    )
+    if expense.recorded_by_id:
+        notify_user(
+            user_id=expense.recorded_by_id,
+            title=f"Expense {decision.lower()}",
+            message=f"Your expense '{expense.description}' was {decision.lower()}.",
+            link=f"/projects/{expense.project_id}?tab=expenses",
+        )
     db.session.commit()
     return expense
 
@@ -670,9 +819,15 @@ def review_material_request(actor: User, request_id: int, status: str, notes: st
     )
     if req is None:
         raise ProjectServiceError("Material request not found.", status_code=404)
-    assert_can_manage(actor, req.project)
-    if status not in {"Approved", "Rejected", "Fulfilled"}:
-        raise ProjectServiceError("Invalid review status.")
+    try:
+        assert_can_approve_material_request(actor, req)
+    except ProjectAccessError as exc:
+        raise ProjectServiceError(exc.message, status_code=exc.status_code) from exc
+
+    if status not in MR_REVIEW_STATUSES:
+        raise ProjectServiceError("Review status must be Approved or Rejected.")
+
+    previous = req.status
     req.status = status
     req.reviewed_by_id = actor.id
     req.review_notes = (notes or "").strip() or None
@@ -681,7 +836,7 @@ def review_material_request(actor: User, request_id: int, status: str, notes: st
         action=f"{status} material request",
         entity_type="material_request",
         entity_id=req.id,
-        details=req.material.name if req.material else None,
+        details=f"{previous} → {status}; {req.material.name if req.material else ''}".strip("; "),
     )
     notify_user(
         user_id=req.requested_by_id,
@@ -691,6 +846,44 @@ def review_material_request(actor: User, request_id: int, status: str, notes: st
     )
     db.session.commit()
     return req
+
+
+def verify_task(actor: User, task_id: int) -> Task:
+    """Site operator verifies a worker task that is Ready for Review."""
+    task = db.session.scalar(
+        select(Task)
+        .options(joinedload(Task.project), joinedload(Task.assigned_user))
+        .where(Task.id == task_id)
+    )
+    if task is None:
+        raise ProjectServiceError("Task not found.", status_code=404)
+    try:
+        assert_can_verify_task(actor, task)
+    except ProjectAccessError as exc:
+        raise ProjectServiceError(exc.message, status_code=exc.status_code) from exc
+
+    previous = normalize_task_status(task.status)
+    task.status = "Verified"
+    log_activity(
+        actor=actor,
+        action=f'Verified task "{task.name}"',
+        entity_type="task",
+        entity_id=task.id,
+        details=f"{previous} → Verified",
+    )
+    if task.assigned_user_id and task.assigned_user_id != actor.id:
+        notify_user(
+            user_id=task.assigned_user_id,
+            title="Task verified",
+            message=f'"{task.name}" on {task.project.name} was verified.',
+            link=f"/tasks/{task.id}",
+        )
+    db.session.commit()
+    return task
+
+
+def serialize_material_request(actor: User, req: MaterialRequest) -> dict:
+    return req.to_dict(can_approve=can_approve_material_request(actor, req))
 
 
 def create_material_request(actor: User, data: dict) -> MaterialRequest:
@@ -1098,7 +1291,8 @@ def pm_dashboard(actor: User) -> dict:
             actual = float(
                 db.session.scalar(
                     select(func.coalesce(func.sum(Expense.amount), 0)).where(
-                        Expense.project_id == project.id
+                        Expense.project_id == project.id,
+                        Expense.status == "Approved",
                     )
                 )
                 or 0

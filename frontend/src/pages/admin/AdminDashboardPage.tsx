@@ -200,9 +200,10 @@ export function AdminDashboardPage() {
                 <QuickActions
                   items={[
                     { label: 'Manage Users', to: '/users', icon: 'bi-person-plus' },
-                    { label: 'Company Profile', to: '/company', icon: 'bi-buildings' },
+                    { label: 'Employees', to: '/employees', icon: 'bi-people' },
+                    { label: 'Contractors', to: '/contractors', icon: 'bi-person-badge' },
+                    { label: 'Settings', to: '/settings', icon: 'bi-gear' },
                     { label: 'View Reports', to: '/reports', icon: 'bi-bar-chart-line' },
-                    { label: 'Notifications', to: '/notifications', icon: 'bi-bell' },
                   ]}
                 />
               </div>

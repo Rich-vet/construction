@@ -160,7 +160,12 @@ def test_se_can_upload_document(client, app):
         "project_id": str(project_id),
         "name": "Site photo",
         "document_type": "Photo",
-        "file": (io.BytesIO(b"fake-image-bytes"), "site.jpg"),
+        "file": (
+            io.BytesIO(
+                b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xd9"
+            ),
+            "site.jpg",
+        ),
     }
     response = client.post(
         "/api/site/documents",
