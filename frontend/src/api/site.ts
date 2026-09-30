@@ -28,6 +28,35 @@ export type SiteMeta = {
   equipment_conditions: string[]
   document_types: string[]
   can_manage_catalog?: boolean
+  can_operate_site?: boolean
+}
+
+export type EquipmentAllocationSummary = {
+  id: number
+  project_id: number
+  project_name: string | null
+  quantity: number
+  allocated_at: string | null
+  notes: string | null
+  returned_at?: string | null
+  equipment_id?: number
+  equipment_name?: string | null
+}
+
+export type EquipmentItem = {
+  id: number
+  name: string
+  asset_id: string
+  equipment_type: string | null
+  quantity: number
+  allocated_quantity: number
+  available_quantity: number
+  condition: string
+  status: string
+  description: string | null
+  current_project_id: number | null
+  current_project_name: string | null
+  open_allocations: EquipmentAllocationSummary[]
 }
 
 export function fetchSeDashboard() {
@@ -72,7 +101,7 @@ export function recordMaterialUsage(payload: Record<string, unknown>) {
 }
 
 export function fetchEquipment() {
-  return apiRequest<{ items: Array<Record<string, unknown>> }>('/api/site/equipment')
+  return apiRequest<{ items: EquipmentItem[] }>('/api/site/equipment')
 }
 
 export function fetchEquipmentAllocations(projectId?: number) {

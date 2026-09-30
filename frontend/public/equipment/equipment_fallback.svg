@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-label="Equipment image unavailable">
+  <rect width="640" height="480" fill="#1a2436"/>
+  <rect x="48" y="48" width="544" height="384" rx="28" fill="none" stroke="#334155" stroke-width="2"/>
+  <g fill="none" stroke="#fbbf24" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M150 320h340"/>
+    <path d="M190 320V230h150l70 90"/>
+    <circle cx="230" cy="320" r="28"/>
+    <circle cx="420" cy="320" r="28"/>
+    <path d="M250 230V170h40"/>
+    <path d="M270 170l80-48"/>
+  </g>
+  <text x="320" y="400" text-anchor="middle" fill="#9aa8bc" font-family="Segoe UI, sans-serif" font-size="22">Equipment photo</text>
+</svg>

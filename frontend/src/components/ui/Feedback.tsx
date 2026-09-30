@@ -28,6 +28,12 @@ const STATUS_ICONS: Record<string, string> = {
   good: 'bi-emoji-smile',
   delayed: 'bi-clock-history',
   unavailable: 'bi-slash-circle',
+  available: 'bi-check-circle',
+  allocated: 'bi-geo-alt',
+  'under-maintenance': 'bi-tools',
+  excellent: 'bi-star',
+  fair: 'bi-exclamation-circle',
+  poor: 'bi-exclamation-octagon',
 }
 
 export function StatusBadge({ status }: { status: string }) {
