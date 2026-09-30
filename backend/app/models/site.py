@@ -97,13 +97,32 @@ class Equipment(db.Model):
     purchase_date = db.Column(db.Date, nullable=True)
     condition = db.Column(db.String(40), nullable=False, default="Good")
     status = db.Column(db.String(40), nullable=False, default="Available", index=True)
+    # Units of this catalog asset. One row stays one asset identity (unique asset_id).
+    quantity = db.Column(db.Integer, nullable=False, default=1, server_default="1")
     description = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     allocations = db.relationship("EquipmentAllocation", back_populates="equipment")
 
+    def open_allocations(self) -> list:
+        return [row for row in self.allocations if row.returned_at is None]
+
+    def allocated_unit_count(self) -> int:
+        return sum(int(row.quantity or 1) for row in self.open_allocations())
+
+    def available_unit_count(self) -> int:
+        return max(int(self.quantity or 1) - self.allocated_unit_count(), 0)
+
     def to_dict(self) -> dict:
-        current = next((a for a in self.allocations if a.returned_at is None), None)
+        open_rows = self.open_allocations()
+        allocated_qty = sum(int(row.quantity or 1) for row in open_rows)
+        total_qty = int(self.quantity or 1)
+        available_qty = max(total_qty - allocated_qty, 0)
+        current = open_rows[0] if open_rows else None
+        site_names = []
+        for row in open_rows:
+            if row.project and row.project.name not in site_names:
+                site_names.append(row.project.name)
         return {
             "id": self.id,
             "name": self.name,
@@ -112,9 +131,23 @@ class Equipment(db.Model):
             "purchase_date": self.purchase_date.isoformat() if self.purchase_date else None,
             "condition": self.condition,
             "status": self.status,
+            "quantity": total_qty,
+            "allocated_quantity": allocated_qty,
+            "available_quantity": available_qty,
             "description": self.description,
             "current_project_id": current.project_id if current else None,
-            "current_project_name": current.project.name if current and current.project else None,
+            "current_project_name": ", ".join(site_names) if site_names else None,
+            "open_allocations": [
+                {
+                    "id": row.id,
+                    "project_id": row.project_id,
+                    "project_name": row.project.name if row.project else None,
+                    "quantity": int(row.quantity or 1),
+                    "allocated_at": row.allocated_at.isoformat() if row.allocated_at else None,
+                    "notes": row.notes,
+                }
+                for row in open_rows
+            ],
         }
 
 
@@ -128,6 +161,7 @@ class EquipmentAllocation(db.Model):
     allocated_at = db.Column(db.Date, nullable=False)
     expected_return = db.Column(db.Date, nullable=True)
     returned_at = db.Column(db.Date, nullable=True)
+    quantity = db.Column(db.Integer, nullable=False, default=1, server_default="1")
     notes = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
@@ -144,6 +178,7 @@ class EquipmentAllocation(db.Model):
             "project_name": self.project.name if self.project else None,
             "operator_user_id": self.operator_user_id,
             "operator_name": self.operator.full_name if self.operator else None,
+            "quantity": int(self.quantity or 1),
             "allocated_at": self.allocated_at.isoformat() if self.allocated_at else None,
             "expected_return": self.expected_return.isoformat() if self.expected_return else None,
             "returned_at": self.returned_at.isoformat() if self.returned_at else None,

@@ -364,7 +364,7 @@ def _attendance(ids: list[int], d_from, d_to):
 
 def _equipment(ids: list[int], d_from, d_to):
     _ = (d_from, d_to)
-    columns = ["Asset", "Name", "Type", "Condition", "Status", "Current project"]
+    columns = ["Asset", "Name", "Type", "Quantity", "Condition", "Status", "Current project"]
     rows = []
     for e in db.session.scalars(
         select(Equipment).options(joinedload(Equipment.allocations)).order_by(Equipment.name)
@@ -377,6 +377,7 @@ def _equipment(ids: list[int], d_from, d_to):
                 e.asset_id,
                 e.name,
                 e.equipment_type or "—",
+                int(e.quantity or 1),
                 e.condition,
                 e.status,
                 current.project.name if current and current.project else "—",

@@ -20,6 +20,25 @@ class InventoryServiceError(Exception):
         self.status_code = status_code
 
 
+def parse_positive_int(value, *, default: int | None = None, field: str = "Quantity") -> int:
+    """Whole number of units. Rejects zero, negatives, and fractions."""
+    if value in (None, ""):
+        if default is None:
+            raise InventoryServiceError(f"{field} is required.")
+        return default
+    if isinstance(value, bool):
+        raise InventoryServiceError(f"{field} must be a positive whole number.")
+    if isinstance(value, float):
+        raise InventoryServiceError(f"{field} must be a positive whole number.")
+    text = str(value).strip()
+    if not text.isdigit():
+        raise InventoryServiceError(f"{field} must be a positive whole number.")
+    number = int(text)
+    if number < 1:
+        raise InventoryServiceError(f"{field} must be a positive whole number.")
+    return number
+
+
 def _as_qty(value) -> Decimal:
     try:
         return Decimal(str(value))
@@ -95,6 +114,19 @@ def upsert_equipment(actor: User, data: dict, equipment_id: int | None = None) -
     equipment.equipment_type = (data.get("equipment_type") or "").strip() or None
     equipment.description = (data.get("description") or "").strip() or None
 
+    if equipment_id is None and data.get("quantity") in (None, ""):
+        equipment.quantity = 1
+    elif "quantity" in data and data.get("quantity") not in (None, ""):
+        quantity = parse_positive_int(data.get("quantity"))
+        allocated = equipment.allocated_unit_count() if equipment.id else 0
+        if quantity < allocated:
+            raise InventoryServiceError(
+                "Quantity cannot be less than the units currently allocated."
+            )
+        equipment.quantity = quantity
+    elif equipment.quantity is None:
+        equipment.quantity = 1
+
     condition = (data.get("condition") or equipment.condition or "Good").strip()
     if condition not in EQUIPMENT_CONDITIONS:
         raise InventoryServiceError("Invalid equipment condition.")
@@ -137,6 +169,8 @@ def complete_maintenance(actor: User, equipment_id: int) -> Equipment:
     if equipment is None:
         raise InventoryServiceError("Equipment not found.", status_code=404)
     equipment.status = "Available"
+    if equipment.available_unit_count() <= 0 and equipment.allocated_unit_count() > 0:
+        equipment.status = "Allocated"
     log_activity(
         actor=actor,
         action=f'Marked equipment "{equipment.name}" available after maintenance',

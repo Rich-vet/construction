@@ -435,25 +435,48 @@ def record_material_usage(actor: User, data: dict) -> MaterialTransaction:
     return txn
 
 
+def _catalog_name_key(name: str) -> str:
+    return " ".join((name or "").lower().split())
+
+
+def _catalog_name_exists(catalog_name: str, existing_names: list[str]) -> bool:
+    """True when a stored asset already represents this catalog item."""
+    key = _catalog_name_key(catalog_name)
+    for existing in existing_names:
+        if existing == key or existing.startswith(key + " "):
+            return True
+    return False
+
+
 def ensure_demo_equipment() -> None:
-    if db.session.scalar(select(func.count()).select_from(Equipment)) > 0:
-        return
-    demos = [
-        ("Excavator EX-01", "EQ-EX-01", "Heavy Machinery", "Good"),
-        ("Concrete Mixer CM-02", "EQ-CM-02", "Mixer", "Excellent"),
-        ("Scaffolding Set SS-03", "EQ-SS-03", "Scaffolding", "Fair"),
-    ]
-    for name, asset, etype, condition in demos:
+    """Insert missing fleet catalog rows. Never updates or deletes existing equipment."""
+    from app.equipment_catalog import EQUIPMENT_CATALOG
+    from app.models.site import EQUIPMENT_CONDITIONS, EQUIPMENT_STATUSES
+
+    existing = list(db.session.scalars(select(Equipment)))
+    asset_ids = {row.asset_id for row in existing}
+    names = [_catalog_name_key(row.name) for row in existing]
+    added = False
+    for item in EQUIPMENT_CATALOG:
+        if item["condition"] not in EQUIPMENT_CONDITIONS or item["status"] not in EQUIPMENT_STATUSES:
+            continue
+        if item["asset_id"] in asset_ids or _catalog_name_exists(item["name"], names):
+            continue
         db.session.add(
             Equipment(
-                name=name,
-                asset_id=asset,
-                equipment_type=etype,
-                condition=condition,
-                status="Available",
+                name=item["name"],
+                asset_id=item["asset_id"],
+                equipment_type=item["equipment_type"],
+                quantity=int(item["quantity"]),
+                condition=item["condition"],
+                status=item["status"],
             )
         )
-    db.session.commit()
+        asset_ids.add(item["asset_id"])
+        names.append(_catalog_name_key(item["name"]))
+        added = True
+    if added:
+        db.session.commit()
 
 
 def list_equipment(actor: User) -> list[dict]:
@@ -488,22 +511,48 @@ def list_allocations(actor: User, *, project_id: int | None = None) -> list[dict
     return [a.to_dict() for a in db.session.scalars(stmt).unique()]
 
 
+def _positive_units(value, *, default: int = 1) -> int:
+    from app.services.inventory_service import InventoryServiceError, parse_positive_int
+
+    try:
+        return parse_positive_int(value, default=default, field="Quantity")
+    except InventoryServiceError as exc:
+        raise SiteServiceError(exc.message, status_code=exc.status_code) from exc
+
+
+def _open_allocated_units(equipment: Equipment) -> int:
+    total = db.session.scalar(
+        select(func.coalesce(func.sum(EquipmentAllocation.quantity), 0)).where(
+            EquipmentAllocation.equipment_id == equipment.id,
+            EquipmentAllocation.returned_at.is_(None),
+        )
+    )
+    return int(total or 0)
+
+
+def _refresh_availability(equipment: Equipment) -> None:
+    """Sync Available/Allocated from remaining units. Leave maintenance and unavailable alone."""
+    if equipment.status in {"Under Maintenance", "Unavailable"}:
+        return
+    total = int(equipment.quantity or 1)
+    equipment.status = "Allocated" if _open_allocated_units(equipment) >= total else "Available"
+
+
 def allocate_equipment(actor: User, data: dict) -> EquipmentAllocation:
     project = _require_site_project(actor, int(data.get("project_id")))
     equipment = db.session.get(Equipment, int(data.get("equipment_id") or 0))
     if equipment is None:
         raise SiteServiceError("Equipment not found.")
-    if equipment.status not in {"Available", "Allocated"}:
+    if equipment.status in {"Under Maintenance", "Unavailable"}:
         raise SiteServiceError("Equipment is not available for allocation.")
 
-    open_alloc = db.session.scalar(
-        select(EquipmentAllocation).where(
-            EquipmentAllocation.equipment_id == equipment.id,
-            EquipmentAllocation.returned_at.is_(None),
+    units = _positive_units(data.get("quantity"), default=1)
+    if units > equipment.available_unit_count():
+        raise SiteServiceError(
+            "Not enough units are free. Return allocated units before assigning more."
+            if equipment.available_unit_count() <= 0
+            else f"Only {equipment.available_unit_count()} unit(s) are available to allocate."
         )
-    )
-    if open_alloc is not None:
-        raise SiteServiceError("Equipment is already allocated. Return it first.")
 
     operator_id = data.get("operator_user_id")
     operator = None
@@ -519,10 +568,11 @@ def allocate_equipment(actor: User, data: dict) -> EquipmentAllocation:
         allocated_at=_parse_date(data.get("allocated_at")) or date.today(),
         expected_return=_parse_date(data.get("expected_return")),
         notes=(data.get("notes") or "").strip() or None,
+        quantity=units,
     )
-    equipment.status = "Allocated"
     db.session.add(allocation)
     db.session.flush()
+    _refresh_availability(equipment)
     log_activity(
         actor=actor,
         action="equipment_allocated",
@@ -553,7 +603,8 @@ def return_equipment(actor: User, allocation_id: int, data: dict | None = None) 
             if condition not in EQUIPMENT_CONDITIONS:
                 raise SiteServiceError("Invalid equipment condition.")
             allocation.equipment.condition = condition
-        allocation.equipment.status = "Available"
+        if allocation.equipment.status in {"Available", "Allocated"}:
+            _refresh_availability(allocation.equipment)
     db.session.flush()
     log_activity(
         actor=actor,
@@ -870,4 +921,5 @@ def site_meta(actor: User) -> dict:
         "equipment_conditions": list(EQUIPMENT_CONDITIONS),
         "document_types": ["Photo", "Drawing", "Permit", "Report", "Work Evidence", "Other"],
         "can_manage_catalog": actor.role_name in {ADMINISTRATOR, PROJECT_MANAGER},
+        "can_operate_site": actor.role_name in {PROJECT_MANAGER, SITE_ENGINEER},
     }

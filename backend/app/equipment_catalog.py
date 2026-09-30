@@ -1,0 +1,98 @@
+"""Construction fleet catalog for idempotent equipment seeding.
+
+Each row is one catalog asset (unique asset_id) with a stock quantity.
+Existing rows are never updated or deleted.
+"""
+
+from __future__ import annotations
+
+EQUIPMENT_CATALOG: tuple[dict, ...] = (
+    # Concrete and masonry
+    {"name": "Concrete Mixer", "asset_id": "EQ-CM-001", "equipment_type": "Concrete and masonry", "quantity": 2, "condition": "Excellent", "status": "Available"},
+    {"name": "Concrete Vibrator", "asset_id": "EQ-CV-001", "equipment_type": "Concrete and masonry", "quantity": 4, "condition": "Good", "status": "Available"},
+    {"name": "Concrete Power Trowel", "asset_id": "EQ-CPT-001", "equipment_type": "Concrete and masonry", "quantity": 2, "condition": "Good", "status": "Available"},
+    {"name": "Concrete Screed", "asset_id": "EQ-CSC-001", "equipment_type": "Concrete and masonry", "quantity": 3, "condition": "Good", "status": "Available"},
+    {"name": "Concrete Wheelbarrow", "asset_id": "EQ-CWB-001", "equipment_type": "Concrete and masonry", "quantity": 10, "condition": "Good", "status": "Available"},
+    {"name": "Cement Mixer Pan", "asset_id": "EQ-CMP-001", "equipment_type": "Concrete and masonry", "quantity": 4, "condition": "Good", "status": "Available"},
+    {"name": "Concrete Cutting Saw", "asset_id": "EQ-CCS-001", "equipment_type": "Concrete and masonry", "quantity": 2, "condition": "Fair", "status": "Available"},
+    {"name": "Block Cutting Machine", "asset_id": "EQ-BCM-001", "equipment_type": "Concrete and masonry", "quantity": 1, "condition": "Good", "status": "Available"},
+    {"name": "Bricklaying Trowel", "asset_id": "EQ-BT-001", "equipment_type": "Concrete and masonry", "quantity": 24, "condition": "Good", "status": "Available"},
+    {"name": "Masonry Float", "asset_id": "EQ-MF-001", "equipment_type": "Concrete and masonry", "quantity": 16, "condition": "Good", "status": "Available"},
+    {"name": "Spirit Level", "asset_id": "EQ-SLV-001", "equipment_type": "Concrete and masonry", "quantity": 12, "condition": "Excellent", "status": "Available"},
+    # Earthworks and site preparation
+    {"name": "Excavator", "asset_id": "EQ-EX-001", "equipment_type": "Earthworks and site preparation", "quantity": 1, "condition": "Good", "status": "Available"},
+    {"name": "Bulldozer", "asset_id": "EQ-BD-001", "equipment_type": "Earthworks and site preparation", "quantity": 1, "condition": "Good", "status": "Available"},
+    {"name": "Backhoe Loader", "asset_id": "EQ-BHL-001", "equipment_type": "Earthworks and site preparation", "quantity": 1, "condition": "Good", "status": "Available"},
+    {"name": "Front-End Loader", "asset_id": "EQ-FEL-001", "equipment_type": "Earthworks and site preparation", "quantity": 1, "condition": "Fair", "status": "Available"},
+    {"name": "Plate Compactor", "asset_id": "EQ-PC-001", "equipment_type": "Earthworks and site preparation", "quantity": 2, "condition": "Good", "status": "Under Maintenance"},
+    {"name": "Rammer Compactor", "asset_id": "EQ-RC-001", "equipment_type": "Earthworks and site preparation", "quantity": 2, "condition": "Good", "status": "Available"},
+    {"name": "Manual Hand Tamper", "asset_id": "EQ-MHT-001", "equipment_type": "Earthworks and site preparation", "quantity": 8, "condition": "Fair", "status": "Available"},
+    {"name": "Wheelbarrow", "asset_id": "EQ-WB-001", "equipment_type": "Earthworks and site preparation", "quantity": 12, "condition": "Good", "status": "Available"},
+    {"name": "Pickaxe", "asset_id": "EQ-PX-001", "equipment_type": "Earthworks and site preparation", "quantity": 15, "condition": "Good", "status": "Available"},
+    {"name": "Spade", "asset_id": "EQ-SPD-001", "equipment_type": "Earthworks and site preparation", "quantity": 18, "condition": "Good", "status": "Available"},
+    {"name": "Shovel", "asset_id": "EQ-SH-001", "equipment_type": "Earthworks and site preparation", "quantity": 20, "condition": "Good", "status": "Available"},
+    {"name": "Garden Hoe", "asset_id": "EQ-GH-001", "equipment_type": "Earthworks and site preparation", "quantity": 10, "condition": "Fair", "status": "Available"},
+    {"name": "Crowbar", "asset_id": "EQ-CRB-001", "equipment_type": "Earthworks and site preparation", "quantity": 12, "condition": "Good", "status": "Available"},
+    {"name": "Mattock", "asset_id": "EQ-MAT-001", "equipment_type": "Earthworks and site preparation", "quantity": 8, "condition": "Good", "status": "Available"},
+    {"name": "Handcart", "asset_id": "EQ-HCT-001", "equipment_type": "Earthworks and site preparation", "quantity": 6, "condition": "Good", "status": "Available"},
+    # Power tools and electrical
+    {"name": "Electric Drill", "asset_id": "EQ-DR-001", "equipment_type": "Power tools and electrical", "quantity": 8, "condition": "Good", "status": "Available"},
+    {"name": "Rotary Hammer Drill", "asset_id": "EQ-RHD-001", "equipment_type": "Power tools and electrical", "quantity": 4, "condition": "Good", "status": "Available"},
+    {"name": "Angle Grinder", "asset_id": "EQ-AG-001", "equipment_type": "Power tools and electrical", "quantity": 6, "condition": "Fair", "status": "Under Maintenance"},
+    {"name": "Circular Saw", "asset_id": "EQ-CSA-001", "equipment_type": "Power tools and electrical", "quantity": 3, "condition": "Good", "status": "Available"},
+    {"name": "Jigsaw", "asset_id": "EQ-JS-001", "equipment_type": "Power tools and electrical", "quantity": 3, "condition": "Good", "status": "Available"},
+    {"name": "Demolition Hammer", "asset_id": "EQ-DMH-001", "equipment_type": "Power tools and electrical", "quantity": 2, "condition": "Good", "status": "Available"},
+    {"name": "Welding Machine", "asset_id": "EQ-WM-001", "equipment_type": "Power tools and electrical", "quantity": 2, "condition": "Good", "status": "Available"},
+    {"name": "Portable Generator", "asset_id": "EQ-PG-001", "equipment_type": "Power tools and electrical", "quantity": 3, "condition": "Excellent", "status": "Available"},
+    {"name": "Air Compressor", "asset_id": "EQ-ACP-001", "equipment_type": "Power tools and electrical", "quantity": 2, "condition": "Good", "status": "Available"},
+    {"name": "Extension Cable Reel", "asset_id": "EQ-ECR-001", "equipment_type": "Power tools and electrical", "quantity": 10, "condition": "Good", "status": "Available"},
+    {"name": "Water Pump", "asset_id": "EQ-WPU-001", "equipment_type": "Power tools and electrical", "quantity": 3, "condition": "Good", "status": "Available"},
+    {"name": "Power Trowel", "asset_id": "EQ-PTW-001", "equipment_type": "Power tools and electrical", "quantity": 2, "condition": "Good", "status": "Available"},
+    # Scaffolding, ladders and access
+    {"name": "Mobile Scaffolding Tower", "asset_id": "EQ-MST-001", "equipment_type": "Scaffolding, ladders and access", "quantity": 4, "condition": "Good", "status": "Available"},
+    {"name": "Steel Scaffolding Frames", "asset_id": "EQ-SSF-001", "equipment_type": "Scaffolding, ladders and access", "quantity": 40, "condition": "Good", "status": "Available"},
+    {"name": "Adjustable Steel Props", "asset_id": "EQ-ASP-001", "equipment_type": "Scaffolding, ladders and access", "quantity": 30, "condition": "Good", "status": "Available"},
+    {"name": "Extension Ladder", "asset_id": "EQ-EL-001", "equipment_type": "Scaffolding, ladders and access", "quantity": 6, "condition": "Good", "status": "Available"},
+    {"name": "Step Ladder", "asset_id": "EQ-STL-001", "equipment_type": "Scaffolding, ladders and access", "quantity": 8, "condition": "Good", "status": "Available"},
+    {"name": "Aluminium Working Platform", "asset_id": "EQ-AWP-001", "equipment_type": "Scaffolding, ladders and access", "quantity": 3, "condition": "Excellent", "status": "Available"},
+    {"name": "Scaffold Planks", "asset_id": "EQ-SPL-001", "equipment_type": "Scaffolding, ladders and access", "quantity": 50, "condition": "Fair", "status": "Available"},
+    # Lifting and material handling
+    {"name": "Tower Crane", "asset_id": "EQ-TCR-001", "equipment_type": "Lifting and material handling", "quantity": 1, "condition": "Excellent", "status": "Available"},
+    {"name": "Mobile Crane", "asset_id": "EQ-MCR-001", "equipment_type": "Lifting and material handling", "quantity": 1, "condition": "Good", "status": "Available"},
+    {"name": "Forklift", "asset_id": "EQ-FK-001", "equipment_type": "Lifting and material handling", "quantity": 2, "condition": "Good", "status": "Available"},
+    {"name": "Construction Hoist", "asset_id": "EQ-CHO-001", "equipment_type": "Lifting and material handling", "quantity": 1, "condition": "Good", "status": "Available"},
+    {"name": "Chain Block", "asset_id": "EQ-CHB-001", "equipment_type": "Lifting and material handling", "quantity": 4, "condition": "Good", "status": "Available"},
+    {"name": "Pallet Jack", "asset_id": "EQ-PJK-001", "equipment_type": "Lifting and material handling", "quantity": 3, "condition": "Good", "status": "Available"},
+    {"name": "Hydraulic Bottle Jack", "asset_id": "EQ-HBJ-001", "equipment_type": "Lifting and material handling", "quantity": 6, "condition": "Good", "status": "Available"},
+    {"name": "Lifting Slings", "asset_id": "EQ-LSL-001", "equipment_type": "Lifting and material handling", "quantity": 12, "condition": "Good", "status": "Available"},
+    # Surveying and measurement
+    {"name": "Total Station", "asset_id": "EQ-TST-001", "equipment_type": "Surveying and measurement", "quantity": 1, "condition": "Excellent", "status": "Available"},
+    {"name": "Automatic Level", "asset_id": "EQ-ALV-001", "equipment_type": "Surveying and measurement", "quantity": 2, "condition": "Good", "status": "Available"},
+    {"name": "Laser Level", "asset_id": "EQ-LLV-001", "equipment_type": "Surveying and measurement", "quantity": 3, "condition": "Good", "status": "Available"},
+    {"name": "Measuring Tape", "asset_id": "EQ-MTP-001", "equipment_type": "Surveying and measurement", "quantity": 20, "condition": "Good", "status": "Available"},
+    {"name": "Laser Distance Meter", "asset_id": "EQ-LDM-001", "equipment_type": "Surveying and measurement", "quantity": 4, "condition": "Excellent", "status": "Available"},
+    {"name": "Survey Tripod", "asset_id": "EQ-STP-001", "equipment_type": "Surveying and measurement", "quantity": 4, "condition": "Good", "status": "Available"},
+    {"name": "Survey Staff", "asset_id": "EQ-SST-001", "equipment_type": "Surveying and measurement", "quantity": 4, "condition": "Good", "status": "Available"},
+    {"name": "Theodolite", "asset_id": "EQ-THD-001", "equipment_type": "Surveying and measurement", "quantity": 1, "condition": "Good", "status": "Available"},
+    # Safety and site support
+    {"name": "Industrial Safety Helmet Set", "asset_id": "EQ-ISH-001", "equipment_type": "Safety and site support", "quantity": 30, "condition": "Good", "status": "Available"},
+    {"name": "Safety Harness", "asset_id": "EQ-SHN-001", "equipment_type": "Safety and site support", "quantity": 15, "condition": "Excellent", "status": "Available"},
+    {"name": "Welding Safety Equipment", "asset_id": "EQ-WSE-001", "equipment_type": "Safety and site support", "quantity": 6, "condition": "Good", "status": "Available"},
+    {"name": "Fire Extinguisher", "asset_id": "EQ-FEX-001", "equipment_type": "Safety and site support", "quantity": 12, "condition": "Good", "status": "Available"},
+    {"name": "Safety Barriers", "asset_id": "EQ-SBR-001", "equipment_type": "Safety and site support", "quantity": 20, "condition": "Fair", "status": "Available"},
+    {"name": "Traffic Cones", "asset_id": "EQ-TCN-001", "equipment_type": "Safety and site support", "quantity": 40, "condition": "Good", "status": "Available"},
+    {"name": "Portable Work Lights", "asset_id": "EQ-PWL-001", "equipment_type": "Safety and site support", "quantity": 8, "condition": "Good", "status": "Available"},
+    {"name": "First Aid Kit", "asset_id": "EQ-FAK-001", "equipment_type": "Safety and site support", "quantity": 6, "condition": "Excellent", "status": "Available"},
+    {"name": "Safety Signage Set", "asset_id": "EQ-SSG-001", "equipment_type": "Safety and site support", "quantity": 4, "condition": "Good", "status": "Available"},
+    # Plumbing and finishing
+    {"name": "Pipe Threading Machine", "asset_id": "EQ-PTM-001", "equipment_type": "Plumbing and finishing", "quantity": 1, "condition": "Good", "status": "Available"},
+    {"name": "Pipe Cutter", "asset_id": "EQ-PCT-001", "equipment_type": "Plumbing and finishing", "quantity": 6, "condition": "Good", "status": "Available"},
+    {"name": "Plumbing Pressure Tester", "asset_id": "EQ-PPT-001", "equipment_type": "Plumbing and finishing", "quantity": 2, "condition": "Good", "status": "Available"},
+    {"name": "Tile Cutter", "asset_id": "EQ-TLC-001", "equipment_type": "Plumbing and finishing", "quantity": 3, "condition": "Fair", "status": "Under Maintenance"},
+    {"name": "Floor Polisher", "asset_id": "EQ-FPL-001", "equipment_type": "Plumbing and finishing", "quantity": 2, "condition": "Good", "status": "Available"},
+    {"name": "Paint Sprayer", "asset_id": "EQ-PSP-001", "equipment_type": "Plumbing and finishing", "quantity": 3, "condition": "Good", "status": "Available"},
+    {"name": "Paint Roller Set", "asset_id": "EQ-PRS-001", "equipment_type": "Plumbing and finishing", "quantity": 15, "condition": "Good", "status": "Available"},
+    {"name": "Industrial Vacuum Cleaner", "asset_id": "EQ-IVC-001", "equipment_type": "Plumbing and finishing", "quantity": 2, "condition": "Good", "status": "Available"},
+    {"name": "Wet and Dry Vacuum", "asset_id": "EQ-WDV-001", "equipment_type": "Plumbing and finishing", "quantity": 3, "condition": "Good", "status": "Available"},
+    {"name": "Water Pressure Washer", "asset_id": "EQ-WPW-001", "equipment_type": "Plumbing and finishing", "quantity": 2, "condition": "Good", "status": "Available"},
+)
