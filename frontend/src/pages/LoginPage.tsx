@@ -60,6 +60,7 @@ export function LoginPage() {
     <AuthLayout
       title="Sign in"
       subtitle="Use your company account to open projects, sites, and reports."
+      showSitePhoto
     >
       {resetSuccess ? (
         <Alert variant="success" role="status">

@@ -1,24 +1,43 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
 type AuthLayoutProps = {
   title: string
   subtitle: string
   children: ReactNode
+  showSitePhoto?: boolean
 }
 
-export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
+export function AuthLayout({ title, subtitle, children, showSitePhoto = false }: AuthLayoutProps) {
+  const [photoReady, setPhotoReady] = useState(showSitePhoto)
+
   return (
     <div className="auth-screen">
-      <aside className="auth-aside" aria-hidden="true">
-        <div className="auth-aside-grid" />
-        <div className="auth-aside-beam" />
-        <div className="auth-aside-content">
-          <p className="auth-aside-kicker">Site operations</p>
-          <p className="auth-aside-copy">
-            Built for site control, structure, and accountability.
-          </p>
-        </div>
-      </aside>
+      {photoReady ? (
+        <aside className="auth-aside auth-aside--photo">
+          <img
+            className="auth-aside-photo"
+            src="/main_construction_site.jpg"
+            alt=""
+            onError={() => setPhotoReady(false)}
+          />
+          <div className="auth-aside-overlay" />
+          <div className="auth-aside-content">
+            <p className="auth-aside-kicker">CCMS</p>
+            <p className="auth-aside-copy">Building Projects. Managing Progress.</p>
+          </div>
+        </aside>
+      ) : (
+        <aside className="auth-aside" aria-hidden="true">
+          <div className="auth-aside-grid" />
+          <div className="auth-aside-beam" />
+          <div className="auth-aside-content">
+            <p className="auth-aside-kicker">Site operations</p>
+            <p className="auth-aside-copy">
+              Built for site control, structure, and accountability.
+            </p>
+          </div>
+        </aside>
+      )}
 
       <div className="auth-panel">
         <div className="auth-brand">
