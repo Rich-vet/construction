@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Alert, Badge, Button, Spinner } from 'react-bootstrap'
 import { Link, useParams } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
+import { DeactivateUserDialog } from '../../components/ui/Feedback'
 import { ApiError, type AuthUser } from '../../api/auth'
 import { activateUser, deactivateUser, fetchUser } from '../../api/admin'
 
@@ -13,6 +14,8 @@ export function UserDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [dialogError, setDialogError] = useState<string | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -31,23 +34,20 @@ export function UserDetailPage() {
 
   const toggle = async () => {
     if (!user) return
-    if (
-      !window.confirm(
-        user.is_active ? `Deactivate ${user.full_name}?` : `Activate ${user.full_name}?`,
-      )
-    ) {
-      return
-    }
     setBusy(true)
     setError(null)
+    setDialogError(null)
     try {
       const result = user.is_active
         ? await deactivateUser(user.id)
         : await activateUser(user.id)
       setMessage(result.message)
       setUser(result.user)
+      setConfirming(false)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Unable to update status.')
+      const text = err instanceof ApiError ? err.message : 'Unable to update status.'
+      if (user.is_active) setDialogError(text)
+      else setError(text)
     } finally {
       setBusy(false)
     }
@@ -60,6 +60,23 @@ export function UserDetailPage() {
           <Spinner animation="border" />
         </div>
       ) : null}
+      {user ? (
+        <DeactivateUserDialog
+          show={confirming}
+          fullName={user.full_name}
+          email={user.email}
+          role={user.role}
+          busy={busy}
+          error={dialogError}
+          onCancel={() => {
+            if (busy) return
+            setConfirming(false)
+            setDialogError(null)
+          }}
+          onConfirm={() => void toggle()}
+        />
+      ) : null}
+
       {error ? <Alert variant="danger">{error}</Alert> : null}
       {message ? <Alert variant="success">{message}</Alert> : null}
 
@@ -71,7 +88,14 @@ export function UserDetailPage() {
             </Link>
             <Button
               variant={user.is_active ? 'outline-danger' : 'outline-success'}
-              onClick={() => void toggle()}
+              onClick={() => {
+                if (user.is_active) {
+                  setDialogError(null)
+                  setConfirming(true)
+                  return
+                }
+                void toggle()
+              }}
               disabled={busy}
             >
               {user.is_active ? 'Deactivate' : 'Activate'}

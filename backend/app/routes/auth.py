@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request, session
 from flask_wtf.csrf import generate_csrf
 
 from app.extensions import csrf
@@ -15,7 +15,16 @@ auth_bp = Blueprint("auth", __name__)
 
 @auth_bp.get("/csrf")
 def csrf_token():
-    """Issue a CSRF token for the SPA (also sets the CSRF cookie)."""
+    """Issue a CSRF token bound to the current session.
+
+    Login clears the session, which drops the previous CSRF secret. If this
+    process reused an application context, Flask-WTF would otherwise return the
+    cached signed token without writing a new secret into the session.
+    """
+    field_name = current_app.config.get("WTF_CSRF_FIELD_NAME", "csrf_token")
+    if field_name not in session:
+        if hasattr(g, field_name):
+            delattr(g, field_name)
     return jsonify({"csrf_token": generate_csrf()})
 
 

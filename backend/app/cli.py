@@ -32,6 +32,15 @@ def register_cli(app: Flask) -> None:
             click.echo(f"Demo project already present (id={demo['project_id']}).")
         elif not scenario:
             click.echo("Demo scenario skipped.")
+        workers = result.get("workers") or {}
+        click.echo(
+            "Zambian worker accounts: "
+            f"created={workers.get('created', 0)} "
+            f"skipped={workers.get('skipped', 0)} "
+            f"failed={workers.get('failed', 0)} "
+            f"team_members_added={workers.get('crew_members', 0)} "
+            f"tasks_added={workers.get('crew_tasks', 0)}"
+        )
 
     @app.cli.command("verify-db")
     def verify_db_command() -> None:

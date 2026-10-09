@@ -1,6 +1,20 @@
-/** Local equipment photos. Files live in frontend/public/equipment/. */
+/** Local equipment photos live in frontend/public/equipment/. Remote URLs are fallbacks. */
+
+import remoteImages from './remote-images.json'
 
 const FALLBACK = "/equipment/equipment_fallback.svg"
+const REMOTE_BY_NAME = remoteImages as Record<string, string>
+
+const CATEGORY_REMOTE_KEY: Record<string, string> = {
+  "Concrete and masonry": "concrete mixer",
+  "Earthworks and site preparation": "excavator",
+  "Power tools and electrical": "electric drill",
+  "Scaffolding, ladders and access": "mobile scaffolding tower",
+  "Lifting and material handling": "construction hoist",
+  "Surveying and measurement": "total station",
+  "Safety and site support": "industrial safety helmet set",
+  "Plumbing and finishing": "tile cutter",
+}
 
 /** Exact catalog name → filename. */
 const BY_NAME: Record<string, string> = {
@@ -102,6 +116,18 @@ function nameKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ")
 }
 
+function remoteForName(name: string): string | undefined {
+  const key = nameKey(name)
+  if (REMOTE_BY_NAME[key]) return REMOTE_BY_NAME[key]
+  const keys = Object.keys(REMOTE_BY_NAME).sort((a, b) => b.length - a.length)
+  for (const candidate of keys) {
+    if (key.startsWith(`${candidate} `) || key.startsWith(`${candidate}-`)) {
+      return REMOTE_BY_NAME[candidate]
+    }
+  }
+  return undefined
+}
+
 function specificFilename(name: string): string | undefined {
   const key = nameKey(name)
   if (BY_NAME[key]) return BY_NAME[key]
@@ -114,14 +140,26 @@ function specificFilename(name: string): string | undefined {
   return undefined
 }
 
+function pushUnique(urls: string[], value: string | undefined) {
+  if (value && !urls.includes(value)) urls.push(value)
+}
+
 export function equipmentImageCandidates(name: string, equipmentType: string | null | undefined): string[] {
   const urls: string[] = []
   const specific = specificFilename(name)
-  if (specific) urls.push(`/equipment/${specific}`)
-  const category = equipmentType ? BY_CATEGORY[equipmentType] : undefined
-  if (category && category !== specific) urls.push(`/equipment/${category}`)
-  urls.push(FALLBACK)
+  if (specific) pushUnique(urls, `/equipment/${specific}`)
+  pushUnique(urls, remoteForName(name))
+  const categoryFile = equipmentType ? BY_CATEGORY[equipmentType] : undefined
+  if (categoryFile && categoryFile !== specific) pushUnique(urls, `/equipment/${categoryFile}`)
+  if (equipmentType) {
+    pushUnique(urls, REMOTE_BY_NAME[CATEGORY_REMOTE_KEY[equipmentType] ?? ""])
+  }
+  pushUnique(urls, FALLBACK)
   return urls
 }
+
+export const LOGIN_SITE_IMAGE = "/main_construction_site.jpg"
+export const LOGIN_SITE_IMAGE_FALLBACK =
+  "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=1600&q=80"
 
 export const EQUIPMENT_IMAGE_FILES = [...new Set(Object.values(BY_NAME))].sort()

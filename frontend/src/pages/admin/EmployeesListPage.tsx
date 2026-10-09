@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert, Button, Form, Spinner, Table } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'

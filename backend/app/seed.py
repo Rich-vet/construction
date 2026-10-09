@@ -168,9 +168,14 @@ def run_seed(*, with_demo_scenario: bool = True) -> dict:
 
         scenario = seed_demo_scenario()
 
+    from app.seed_workers import seed_zambian_workers
+
+    workers = seed_zambian_workers()
+
     return {
         "roles": list(ALL_ROLES),
         "users": [u["email"] for u in DEMO_USERS],
         "password": DEMO_PASSWORD,
         "demo_project": scenario,
+        "workers": workers,
     }

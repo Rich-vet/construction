@@ -6,7 +6,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
-from flask import g, jsonify, session
+from flask import current_app, g, has_request_context, jsonify, request, session
 
 from app.extensions import db
 from app.models import User
@@ -30,6 +30,24 @@ def get_current_user() -> User | None:
 
     g.current_user = user
     return user
+
+
+def log_access_denied(status: int, reason: str) -> None:
+    """Record a denied request without tokens, passwords, or request bodies."""
+    if not has_request_context():
+        return
+    user = getattr(g, "current_user", None)
+    if user is None and "user_id" in session:
+        user = get_current_user()
+    current_app.logger.warning(
+        "access_denied status=%s method=%s path=%s user_id=%s role=%s reason=%s",
+        status,
+        request.method,
+        request.path,
+        getattr(user, "id", None),
+        getattr(user, "role_name", None),
+        reason,
+    )
 
 
 def login_user(user: User) -> None:
@@ -74,6 +92,7 @@ def roles_required(*role_names: str) -> Callable[[Callable[..., Any]], Callable[
         def wrapped(*args: Any, **kwargs: Any):
             user = get_current_user()
             if user is None:
+                log_access_denied(401, "authentication required")
                 return jsonify(
                     {
                         "error": "unauthorized",
@@ -81,6 +100,7 @@ def roles_required(*role_names: str) -> Callable[[Callable[..., Any]], Callable[
                     }
                 ), 401
             if user.role_name not in allowed:
+                log_access_denied(403, "role not permitted")
                 return jsonify(
                     {
                         "error": "forbidden",

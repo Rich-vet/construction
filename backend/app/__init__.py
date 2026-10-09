@@ -72,11 +72,15 @@ def _register_error_handlers(app: Flask) -> None:
     """JSON error responses (no stack traces to clients)."""
 
     @app.errorhandler(CSRFError)
-    def csrf_error(_error):
+    def csrf_error(error):
+        from app.utils.auth import log_access_denied
+
+        reason = getattr(error, "description", None) or "CSRF validation failed"
+        log_access_denied(400, reason)
         return jsonify(
             {
                 "error": "csrf_failed",
-                "message": "Security validation failed. Refresh the page and try again.",
+                "message": "Security validation failed. Please try again.",
             }
         ), 400
 

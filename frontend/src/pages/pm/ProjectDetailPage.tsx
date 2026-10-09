@@ -824,6 +824,8 @@ function WorkspaceProcurement(props: {
 }) {
   const [materialId, setMaterialId] = useState('')
   const [qty, setQty] = useState('1')
+  const selectedMaterial = props.materials.find((item) => String(item.id) === materialId)
+  const quantityUnit = selectedMaterial ? String(selectedMaterial.unit || 'units') : ''
   const [supplier, setSupplier] = useState('')
   const [unitPrice, setUnitPrice] = useState('')
   const [poId, setPoId] = useState('')
@@ -858,13 +860,20 @@ function WorkspaceProcurement(props: {
                 </option>
               ))}
             </Form.Select>
-            <Form.Control
-              type="number"
-              min={0.01}
-              step="0.01"
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-            />
+            <div className="qty-unit">
+              <Form.Control
+                type="number"
+                min={0.01}
+                step="0.01"
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                aria-label="Quantity"
+                aria-describedby="project-request-quantity-unit"
+              />
+              <span className="qty-unit__label" id="project-request-quantity-unit">
+                {quantityUnit || 'Unit'}
+              </span>
+            </div>
             <Button type="submit">Request</Button>
           </Form>
         ) : null}
@@ -881,7 +890,9 @@ function WorkspaceProcurement(props: {
             {props.requests.map((r) => (
               <tr key={String(r.id)}>
                 <td>{String(r.material_name)}</td>
-                <td>{String(r.quantity)}</td>
+                <td>
+                  {String(r.quantity)} {String(r.unit || '')}
+                </td>
                 <td>{String(r.status)}</td>
                 <td className="table-actions">
                   {Boolean(r.can_approve) && String(r.status) === 'Pending' ? (

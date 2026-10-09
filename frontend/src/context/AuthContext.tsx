@@ -54,6 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const result = await apiLogin(email, password)
+    // login_user() clears the session, so the pre-login CSRF token is no longer valid.
+    await fetchCsrf()
     setUser(result.user)
     setNavigation(result.navigation)
   }, [])

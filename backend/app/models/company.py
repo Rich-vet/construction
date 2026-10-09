@@ -115,6 +115,8 @@ class Material(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     def to_dict(self) -> dict:
+        from app.utils.material_units import resolve_unit
+
         qty = float(self.quantity or 0)
         minimum = float(self.minimum_stock or 0)
         return {
@@ -123,7 +125,7 @@ class Material(db.Model):
             "category": self.category,
             "quantity": qty,
             "minimum_stock": minimum,
-            "unit": self.unit,
+            "unit": resolve_unit(self.name, self.unit),
             "storage_location": self.storage_location,
             "description": self.description,
             "is_low_stock": qty <= minimum,

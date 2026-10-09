@@ -23,6 +23,8 @@ export function EquipmentImage({ name, equipmentType, alt, className }: Equipmen
     <img
       src={src}
       alt={alt}
+      loading="lazy"
+      decoding="async"
       className={`${className ?? ''} ${isFallback ? 'is-fallback' : ''}`.trim()}
       onError={() => {
         setIndex((current) => (current < candidates.length - 1 ? current + 1 : current))

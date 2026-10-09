@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Alert, Badge, Button, Form, Spinner, Table } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
+import { DeactivateUserDialog } from '../../components/ui/Feedback'
 import { ApiError, type AuthUser } from '../../api/auth'
 import {
   activateUser,
@@ -23,6 +24,9 @@ export function UsersListPage() {
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [pending, setPending] = useState<AuthUser | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogError, setDialogError] = useState<string | null>(null)
 
   const load = (nextPage = page) => {
     setLoading(true)
@@ -57,14 +61,18 @@ export function UsersListPage() {
     setBusyId(user.id)
     setMessage(null)
     setError(null)
+    setDialogError(null)
     try {
       const result = user.is_active
         ? await deactivateUser(user.id)
         : await activateUser(user.id)
       setMessage(result.message)
+      setDialogOpen(false)
       load(page)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Unable to update user status.')
+      const text = err instanceof ApiError ? err.message : 'Unable to update user status.'
+      if (user.is_active) setDialogError(text)
+      else setError(text)
     } finally {
       setBusyId(null)
     }
@@ -109,6 +117,26 @@ export function UsersListPage() {
           Add user
         </Link>
       </div>
+
+      <DeactivateUserDialog
+        show={dialogOpen && pending !== null}
+        fullName={pending?.full_name ?? ''}
+        email={pending?.email ?? ''}
+        role={pending?.role ?? ''}
+        busy={pending !== null && busyId === pending.id}
+        error={dialogError}
+        onCancel={() => {
+          if (busyId !== null) return
+          setDialogOpen(false)
+        }}
+        onExited={() => {
+          setPending(null)
+          setDialogError(null)
+        }}
+        onConfirm={() => {
+          if (pending) void toggleActive(pending)
+        }}
+      />
 
       {message ? <Alert variant="success">{message}</Alert> : null}
       {error ? <Alert variant="danger">{error}</Alert> : null}
@@ -165,15 +193,13 @@ export function UsersListPage() {
                         variant={user.is_active ? 'outline-danger' : 'outline-success'}
                         disabled={busyId === user.id}
                         onClick={() => {
-                          if (
-                            window.confirm(
-                              user.is_active
-                                ? `Deactivate ${user.full_name}?`
-                                : `Activate ${user.full_name}?`,
-                            )
-                          ) {
-                            void toggleActive(user)
+                          if (user.is_active) {
+                            setDialogError(null)
+                            setPending(user)
+                            setDialogOpen(true)
+                            return
                           }
+                          void toggleActive(user)
                         }}
                       >
                         {user.is_active ? 'Deactivate' : 'Activate'}

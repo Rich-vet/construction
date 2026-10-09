@@ -54,7 +54,11 @@ type RequestOptions = {
   formData?: FormData
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(
+  path: string,
+  options: RequestOptions = {},
+  csrfRetried = false,
+): Promise<T> {
   const method = options.method ?? 'GET'
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -69,7 +73,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (options.csrf || (method !== 'GET' && method !== 'HEAD')) {
-    const token = csrfToken ?? (await ensureCsrf())
+    const token = csrfRetried ? await ensureCsrf() : (csrfToken ?? (await ensureCsrf()))
     if (token) headers['X-CSRFToken'] = token
   }
 
@@ -84,11 +88,17 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     let message = 'Unable to complete the request.'
     let code: string | undefined
     try {
-      const body = (await response.json()) as { message?: string; error?: string }
-      if (body.message) message = body.message
-      code = body.error
+      const payload = (await response.json()) as { message?: string; error?: string }
+      if (payload.message) message = payload.message
+      code = payload.error
     } catch {
       /* ignore */
+    }
+    // Login rotates the session, which invalidates the token fetched beforehand.
+    // Refresh once and retry. A 403 is a permission denial and must not retry or sign out.
+    if (!csrfRetried && code === 'csrf_failed') {
+      csrfToken = null
+      return apiRequest<T>(path, options, true)
     }
     throw new ApiError(message, response.status, code)
   }

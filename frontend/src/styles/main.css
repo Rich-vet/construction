@@ -1495,19 +1495,19 @@ code {
 
 .topbar-notify__badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 1.1rem;
-  height: 1.1rem;
-  padding: 0 0.25rem;
+  top: -4px;
+  right: -6px;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.28rem;
   border-radius: 999px;
-  background: #ef4444;
-  color: #fff;
-  font-size: 0.65rem;
+  background: var(--ccms-amber, #fbbf24);
+  color: var(--ccms-ink, #0f172a);
+  font-size: 0.68rem;
   font-weight: 700;
-  line-height: 1.1rem;
+  line-height: 1.15rem;
   text-align: center;
-  animation: soft-pulse 2.4s var(--ease-standard) infinite;
+  box-shadow: 0 0 0 2px var(--ccms-bg, #0b1220);
 }
 
 .topbar-notify__dot {
@@ -2789,6 +2789,113 @@ code {
   color: var(--ccms-text);
 }
 
+.ccms-dialog-wrap {
+  max-width: 28rem;
+}
+
+.ccms-dialog {
+  overflow: hidden;
+  border: 1px solid var(--ccms-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--ccms-surface);
+  color: var(--ccms-text);
+  box-shadow: var(--shadow-md);
+}
+
+.ccms-dialog__accent {
+  height: 4px;
+  background: linear-gradient(90deg, var(--ccms-amber) 0%, var(--ccms-amber-deep) 55%, var(--ccms-danger) 100%);
+}
+
+.ccms-dialog__body {
+  padding: 1.35rem 1.4rem 0.4rem;
+}
+
+.ccms-dialog__mark {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-bottom: 0.85rem;
+  border-radius: 999px;
+  background: var(--ccms-danger-bg);
+  color: var(--ccms-danger);
+  font-size: 1.25rem;
+}
+
+.ccms-dialog__kicker {
+  margin: 0 0 0.3rem;
+  color: var(--ccms-amber);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ccms-dialog__title {
+  margin: 0 0 0.55rem;
+  color: var(--ccms-text);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.ccms-dialog__lead {
+  margin: 0 0 0.9rem;
+  color: var(--ccms-text-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.ccms-dialog__person {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--ccms-border);
+  border-radius: var(--radius-md, 10px);
+  background: var(--ccms-surface-muted);
+}
+
+.ccms-dialog__person strong {
+  color: var(--ccms-text);
+}
+
+.ccms-dialog__person span {
+  color: var(--ccms-text-muted);
+  font-size: 0.85rem;
+}
+
+.ccms-dialog__error {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md, 10px);
+  background: var(--ccms-danger-bg);
+  color: var(--ccms-danger);
+  font-size: 0.88rem;
+}
+
+.ccms-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0.85rem 1.4rem 1.2rem;
+}
+
+.ccms-dialog .btn-danger {
+  --bs-btn-bg: var(--ccms-danger);
+  --bs-btn-border-color: var(--ccms-danger);
+  --bs-btn-hover-bg: #ef4444;
+  --bs-btn-hover-border-color: #ef4444;
+  --bs-btn-color: var(--ccms-ink);
+  --bs-btn-hover-color: var(--ccms-ink);
+  --bs-btn-disabled-bg: var(--ccms-danger);
+  --bs-btn-disabled-border-color: var(--ccms-danger);
+  --bs-btn-disabled-color: var(--ccms-ink);
+  font-weight: 650;
+}
+
 .modal-header,
 .modal-footer {
   border-color: var(--ccms-border);
@@ -2797,6 +2904,32 @@ code {
 
 .modal-title {
   color: var(--ccms-text);
+}
+
+.qty-unit {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.qty-unit .form-control {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.qty-unit__label {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0 0.85rem;
+  border: 1px solid var(--ccms-border);
+  border-left: 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--ccms-surface-muted);
+  color: var(--ccms-amber);
+  font-size: 0.85rem;
+  font-weight: 650;
+  white-space: nowrap;
 }
 
 .input-group-text {

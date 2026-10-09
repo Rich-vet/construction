@@ -38,7 +38,11 @@ from app.models.project import (
 )
 from app.models.project import PROJECT_STATUSES
 from app.services.activity_service import log_activity
-from app.services.notification_service import notify_user
+from app.services.notification_service import (
+    notify_material_request_reviewed,
+    notify_material_request_submitted,
+    notify_user,
+)
 from app.utils.project_access import (
     ProjectAccessError,
     assert_can_manage,
@@ -838,12 +842,7 @@ def review_material_request(actor: User, request_id: int, status: str, notes: st
         entity_id=req.id,
         details=f"{previous} → {status}; {req.material.name if req.material else ''}".strip("; "),
     )
-    notify_user(
-        user_id=req.requested_by_id,
-        title=f"Material request {status.lower()}",
-        message=f'Your request for {req.material.name if req.material else "materials"} was {status.lower()}.',
-        link="/material-requests",
-    )
+    notify_material_request_reviewed(req, status)
     db.session.commit()
     return req
 
@@ -915,13 +914,7 @@ def create_material_request(actor: User, data: dict) -> MaterialRequest:
         entity_id=project.id,
         details=f"{qty} {material.unit or ''}",
     )
-    if project.project_manager_id:
-        notify_user(
-            user_id=project.project_manager_id,
-            title="New material request",
-            message=f"{actor.full_name} requested {qty} {material.unit or ''} of {material.name}.",
-            link="/material-requests",
-        )
+    notify_material_request_submitted(req, actor)
     db.session.commit()
     return req
 
@@ -1341,15 +1334,31 @@ def list_assignable_users() -> list[dict]:
 
 
 def list_materials() -> list[dict]:
+    apply_standard_material_units()
     materials = db.session.scalars(select(Material).order_by(Material.name)).all()
     return [m.to_dict() for m in materials]
+
+
+def apply_standard_material_units() -> None:
+    """Store the fixed quantity unit for known materials. Other units stay as entered."""
+    from app.utils.material_units import standard_unit
+
+    changed = False
+    for material in db.session.scalars(select(Material)):
+        unit = standard_unit(material.name)
+        if unit and material.unit != unit:
+            material.unit = unit
+            changed = True
+    if changed:
+        db.session.commit()
 
 
 def ensure_demo_materials() -> None:
     defaults = [
         ("Cement", "Structural", "bags", 100, 20),
         ("Steel Bars", "Structural", "tons", 15, 5),
-        ("Sand", "Aggregates", "m3", 40, 10),
+        ("Sand", "Aggregates", "tons", 40, 10),
+        ("Concrete Blocks", "Masonry", "inches", 200, 40),
     ]
     for name, category, unit, qty, minimum in defaults:
         existing = db.session.scalar(select(Material).where(Material.name == name))
@@ -1364,3 +1373,4 @@ def ensure_demo_materials() -> None:
                 )
             )
     db.session.commit()
+    apply_standard_material_units()

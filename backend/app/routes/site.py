@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from flask import Blueprint, current_app, jsonify, request, send_file
 
-from app.extensions import csrf
+from app.extensions import csrf, db
 from app.services import site_service
 from app.utils.auth import get_current_user, roles_required
 from app.utils.project_access import ProjectAccessError
@@ -122,6 +122,7 @@ def create_material():
     try:
         material = inventory_service.upsert_material(_actor(), request.get_json(silent=True) or {})
     except inventory_service.InventoryServiceError as exc:
+        db.session.rollback()
         return jsonify({"error": "inventory_error", "message": exc.message}), exc.status_code
     return jsonify({"message": "Material created.", "material": material.to_dict()}), 201
 
@@ -138,6 +139,7 @@ def update_material(material_id: int):
             _actor(), request.get_json(silent=True) or {}, material_id=material_id
         )
     except inventory_service.InventoryServiceError as exc:
+        db.session.rollback()
         return jsonify({"error": "inventory_error", "message": exc.message}), exc.status_code
     return jsonify({"message": "Material updated.", "material": material.to_dict()})
 
@@ -220,6 +222,7 @@ def create_equipment():
     try:
         equipment = inventory_service.upsert_equipment(_actor(), request.get_json(silent=True) or {})
     except inventory_service.InventoryServiceError as exc:
+        db.session.rollback()
         return jsonify({"error": "inventory_error", "message": exc.message}), exc.status_code
     return jsonify({"message": "Equipment created.", "equipment": equipment.to_dict()}), 201
 
@@ -236,6 +239,7 @@ def update_equipment(equipment_id: int):
             _actor(), request.get_json(silent=True) or {}, equipment_id=equipment_id
         )
     except inventory_service.InventoryServiceError as exc:
+        db.session.rollback()
         return jsonify({"error": "inventory_error", "message": exc.message}), exc.status_code
     return jsonify({"message": "Equipment updated.", "equipment": equipment.to_dict()})
 

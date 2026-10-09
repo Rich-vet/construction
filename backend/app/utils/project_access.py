@@ -14,6 +14,10 @@ class ProjectAccessError(Exception):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+        if status_code == 403:
+            from app.utils.auth import log_access_denied
+
+            log_access_denied(status_code, message)
 
 
 def projects_query_for(user: User):

@@ -69,7 +69,11 @@ export function Topbar({
           title="Notifications"
         >
           <i className="bi bi-bell" aria-hidden="true" />
-          {unreadCount > 0 ? <span className="topbar-notify__dot" aria-hidden="true" /> : null}
+          {unreadCount > 0 ? (
+            <span className="topbar-notify__badge" aria-hidden="true">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          ) : null}
         </Link>
         {userName ? (
           <div className="topbar-user" title={userRole}>

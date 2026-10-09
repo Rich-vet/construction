@@ -58,6 +58,9 @@ export function MaterialRequestsPage() {
     }
   }
 
+  const selectedMaterial = materials.find((item) => String(item.id) === materialId)
+  const quantityUnit = selectedMaterial ? String(selectedMaterial.unit || 'units') : ''
+
   const onCreate = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -119,14 +122,20 @@ export function MaterialRequestsPage() {
             </Form.Group>
             <Form.Group>
               <Form.Label>Quantity</Form.Label>
-              <Form.Control
-                type="number"
-                min="0.01"
-                step="0.01"
-                required
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-              />
+              <div className="qty-unit">
+                <Form.Control
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  required
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  aria-describedby="request-quantity-unit"
+                />
+                <span className="qty-unit__label" id="request-quantity-unit">
+                  {quantityUnit || 'Select a material'}
+                </span>
+              </div>
             </Form.Group>
             <Form.Group className="form-grid__full">
               <Form.Label>Reason</Form.Label>
@@ -165,7 +174,9 @@ export function MaterialRequestsPage() {
                 <tr key={String(r.id)}>
                   <td>{String(r.project_name)}</td>
                   <td>{String(r.material_name)}</td>
-                  <td>{String(r.quantity)}</td>
+                  <td>
+                    {String(r.quantity)} {String(r.unit || '')}
+                  </td>
                   <td>{String(r.requested_by_name)}</td>
                   <td>{String(r.status)}</td>
                   <td className="table-actions">

@@ -133,6 +133,76 @@ export function LoadingButton({
   )
 }
 
+export function DeactivateUserDialog({
+  show,
+  fullName,
+  email,
+  role,
+  busy = false,
+  error = null,
+  onConfirm,
+  onCancel,
+  onExited,
+}: {
+  show: boolean
+  fullName: string
+  email: string
+  role: string
+  busy?: boolean
+  error?: string | null
+  onConfirm: () => void
+  onCancel: () => void
+  onExited?: () => void
+}) {
+  return (
+    <Modal
+      show={show}
+      onHide={() => {
+        if (!busy) onCancel()
+      }}
+      onExited={onExited}
+      centered
+      backdrop="static"
+      contentClassName="ccms-dialog"
+      dialogClassName="ccms-dialog-wrap"
+      aria-labelledby="deactivate-user-title"
+    >
+      <div className="ccms-dialog__accent" aria-hidden="true" />
+      <div className="ccms-dialog__body">
+        <div className="ccms-dialog__mark" aria-hidden="true">
+          <i className="bi bi-person-x" />
+        </div>
+        <p className="ccms-dialog__kicker">Account access</p>
+        <h2 className="ccms-dialog__title" id="deactivate-user-title">
+          Deactivate this account?
+        </h2>
+        <p className="ccms-dialog__lead">
+          {fullName} will no longer be able to sign in. Their tasks, attendance, and project
+          history stay on record, and an administrator can activate the account again later.
+        </p>
+        <div className="ccms-dialog__person">
+          <strong>{fullName}</strong>
+          <span>{role}</span>
+          <span>{email}</span>
+        </div>
+        {error ? (
+          <p className="ccms-dialog__error" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+      <div className="ccms-dialog__actions">
+        <Button variant="outline-secondary" onClick={onCancel} disabled={busy}>
+          Keep active
+        </Button>
+        <LoadingButton variant="danger" loading={busy} onClick={onConfirm}>
+          Deactivate account
+        </LoadingButton>
+      </div>
+    </Modal>
+  )
+}
+
 export function ConfirmDialog({
   show,
   title,

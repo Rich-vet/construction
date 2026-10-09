@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { LOGIN_SITE_IMAGE, LOGIN_SITE_IMAGE_FALLBACK } from '../../equipment/equipmentImages'
 
 type AuthLayoutProps = {
   title: string
@@ -7,18 +8,21 @@ type AuthLayoutProps = {
   showSitePhoto?: boolean
 }
 
+const LOGIN_SOURCES = [LOGIN_SITE_IMAGE, LOGIN_SITE_IMAGE_FALLBACK]
+
 export function AuthLayout({ title, subtitle, children, showSitePhoto = false }: AuthLayoutProps) {
-  const [photoReady, setPhotoReady] = useState(showSitePhoto)
+  const [photoIndex, setPhotoIndex] = useState(0)
+  const showPhoto = showSitePhoto && photoIndex < LOGIN_SOURCES.length
 
   return (
     <div className="auth-screen">
-      {photoReady ? (
+      {showPhoto ? (
         <aside className="auth-aside auth-aside--photo">
           <img
             className="auth-aside-photo"
-            src="/main_construction_site.jpg"
+            src={LOGIN_SOURCES[photoIndex]}
             alt=""
-            onError={() => setPhotoReady(false)}
+            onError={() => setPhotoIndex((current) => current + 1)}
           />
           <div className="auth-aside-overlay" />
           <div className="auth-aside-content">

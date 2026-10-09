@@ -29,12 +29,15 @@ class MaterialRequest(db.Model):
     reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id])
 
     def to_dict(self, *, can_approve: bool | None = None) -> dict:
+        from app.utils.material_units import resolve_unit
+
         data = {
             "id": self.id,
             "project_id": self.project_id,
             "project_name": self.project.name if self.project else None,
             "material_id": self.material_id,
             "material_name": self.material.name if self.material else None,
+            "unit": resolve_unit(self.material.name, self.material.unit) if self.material else None,
             "quantity": float(self.quantity or 0),
             "reason": self.reason,
             "request_date": self.request_date.isoformat() if self.request_date else None,
