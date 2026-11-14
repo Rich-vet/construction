@@ -161,6 +161,66 @@ def list_allocations():
     return jsonify({"items": items})
 
 
+@site_bp.get("/equipment/requests")
+@roles_required(*SITE_ROLES)
+def list_equipment_requests():
+    return jsonify({"items": site_service.list_equipment_requests(_actor())})
+
+
+@site_bp.post("/equipment/requests")
+@roles_required(*SITE_ROLES)
+@csrf.exempt
+def create_equipment_request():
+    _require_csrf()
+    try:
+        row = site_service.request_equipment(_actor(), request.get_json(silent=True) or {})
+    except Exception as exc:
+        return _handle(exc)
+    return jsonify({"message": "Equipment request submitted.", "request": row.to_dict()}), 201
+
+
+@site_bp.post("/equipment/requests/<int:request_id>/review")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+@csrf.exempt
+def review_equipment_request(request_id: int):
+    _require_csrf()
+    try:
+        row = site_service.review_equipment_request(
+            _actor(), request_id, request.get_json(silent=True) or {}
+        )
+    except Exception as exc:
+        return _handle(exc)
+    return jsonify({"message": f"Equipment request {row.status.lower()}.", "request": row.to_dict()})
+
+
+@site_bp.post("/equipment/requests/<int:request_id>/issue")
+@roles_required(*SITE_ROLES)
+@csrf.exempt
+def issue_equipment_request(request_id: int):
+    _require_csrf()
+    try:
+        row = site_service.issue_equipment_request(
+            _actor(), request_id, request.get_json(silent=True) or {}
+        )
+    except Exception as exc:
+        return _handle(exc)
+    return jsonify({"message": "Equipment issued.", "request": row.to_dict()})
+
+
+@site_bp.post("/equipment/allocations/<int:allocation_id>/inspect-return")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+@csrf.exempt
+def inspect_equipment_return(allocation_id: int):
+    _require_csrf()
+    try:
+        allocation = site_service.inspect_equipment_return(
+            _actor(), allocation_id, request.get_json(silent=True) or {}
+        )
+    except Exception as exc:
+        return _handle(exc)
+    return jsonify({"message": "Return inspection recorded.", "allocation": allocation.to_dict()})
+
+
 @site_bp.post("/equipment/allocate")
 @roles_required(*SITE_ROLES)
 @csrf.exempt
@@ -252,7 +312,10 @@ def complete_maintenance(equipment_id: int):
 
     _require_csrf()
     try:
-        equipment = inventory_service.complete_maintenance(_actor(), equipment_id)
+        payload = request.get_json(silent=True) or {}
+        equipment = inventory_service.complete_maintenance(
+            _actor(), equipment_id, release=bool(payload.get("release"))
+        )
     except inventory_service.InventoryServiceError as exc:
         return jsonify({"error": "inventory_error", "message": exc.message}), exc.status_code
     return jsonify({"message": "Equipment marked available.", "equipment": equipment.to_dict()})

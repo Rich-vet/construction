@@ -101,7 +101,7 @@ def update_project(project_id: int):
 
 
 @projects_bp.post("/tasks")
-@roles_required(ADMINISTRATOR, PROJECT_MANAGER)
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER)
 @csrf.exempt
 def create_task():
     _require_csrf()
@@ -339,6 +339,20 @@ def verify_task(task_id: int):
     except Exception as exc:
         return _handle(exc)
     return jsonify({"message": "Task verified.", "task": task.to_dict()})
+
+
+@projects_bp.post("/tasks/<int:task_id>/rework")
+@roles_required(ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER)
+@csrf.exempt
+def rework_task(task_id: int):
+    _require_csrf()
+    try:
+        task = project_service.request_task_rework(
+            _actor(), task_id, request.get_json(silent=True) or {}
+        )
+    except Exception as exc:
+        return _handle(exc)
+    return jsonify({"message": "Task returned for rework.", "task": task.to_dict()})
 
 
 @projects_bp.post("/quotations")

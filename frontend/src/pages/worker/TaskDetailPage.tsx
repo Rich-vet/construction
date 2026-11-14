@@ -6,7 +6,9 @@ import { ProgressBar, StatusPill } from '../../components/ui/PageChrome'
 import { ApiError } from '../../api/auth'
 import {
   addMyTaskComment,
+  addTaskProgress,
   fetchMyTask,
+  submitTaskForInspection,
   updateMyTaskStatus,
   uploadTaskEvidence,
 } from '../../api/worker'
@@ -32,6 +34,17 @@ export function TaskDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [progressPct, setProgressPct] = useState('0')
+  const [progressNote, setProgressNote] = useState('')
+  const [workDone, setWorkDone] = useState('')
+  const [challenges, setChallenges] = useState('')
+  const [completionReport, setCompletionReport] = useState('')
+  const [confirmComplete, setConfirmComplete] = useState(false)
+  const [reports, setReports] = useState<Array<Record<string, unknown>>>([])
+  const [now, setNow] = useState(() => Date.now())
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [progressAttempted, setProgressAttempted] = useState(false)
+  const [focusTarget, setFocusTarget] = useState<string | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -40,13 +53,16 @@ export function TaskDetailPage() {
         setTask(data.task)
         setComments(data.comments)
         setEvidence(data.evidence)
+        setReports((data.progress_reports as Array<Record<string, unknown>>) || [])
         setAllowedStatuses(data.allowed_statuses)
         setCanUpdate(data.can_update)
         setStatus(String(data.task.status))
+        setCompletionReport((current) => current || String(data.task.completion_report || ''))
       })
-      .catch((err: unknown) =>
-        setError(err instanceof ApiError ? err.message : 'Unable to load task.'),
-      )
+      .catch((err: unknown) => {
+        setError(err instanceof ApiError ? err.message : 'Unable to load task.')
+        setFocusTarget('task-page-error')
+      })
       .finally(() => setLoading(false))
   }
 
@@ -54,6 +70,20 @@ export function TaskDetailPage() {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (!focusTarget) return
+    const el = document.getElementById(focusTarget)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.focus()
+    setFocusTarget(null)
+  }, [focusTarget, tab])
 
   const onStatus = async (e: FormEvent) => {
     e.preventDefault()
@@ -66,6 +96,7 @@ export function TaskDetailPage() {
       load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Unable to update status.')
+      setFocusTarget('task-page-error')
     }
   }
 
@@ -82,13 +113,15 @@ export function TaskDetailPage() {
       load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Unable to add note.')
+      setFocusTarget('task-page-error')
     }
   }
 
   const onEvidence = async (e: FormEvent) => {
     e.preventDefault()
     if (!file) {
-      setError('Please choose a file.')
+      setError('Choose a photo file before uploading.')
+      setFocusTarget('submit-photos')
       return
     }
     setError(null)
@@ -105,6 +138,7 @@ export function TaskDetailPage() {
       load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Unable to upload evidence.')
+      setFocusTarget('submit-photos')
     }
   }
 
@@ -130,27 +164,96 @@ export function TaskDetailPage() {
   }
 
   const priority = String(task.priority || 'Medium')
-  const progress = taskProgressPercent(task.status)
+  const progress =
+    task.progress_percent === undefined || task.progress_percent === null
+      ? taskProgressPercent(task.status)
+      : Number(task.progress_percent)
+  const deadline = task.deadline_at ? new Date(String(task.deadline_at)).getTime() : null
+  const remainingMs = deadline === null ? null : deadline - now
   const isComplete =
     String(task.status) === 'Verified' || String(task.status) === 'Completed'
+  const overdue = Boolean(task.is_overdue) || (remainingMs !== null && remainingMs < 0 && !isComplete)
+  let countdown = 'No deadline set'
+  if (remainingMs !== null) {
+    if (remainingMs <= 0) countdown = 'OVERDUE'
+    else {
+      const minutes = Math.floor(remainingMs / 60000)
+      const days = Math.floor(minutes / (60 * 24))
+      const hours = Math.floor((minutes % (60 * 24)) / 60)
+      const mins = minutes % 60
+      countdown = `${days} days, ${String(hours).padStart(2, '0')} hours, ${String(mins).padStart(2, '0')} minutes remaining`
+    }
+  }
+  const statusName = String(task.status)
+  const canStart = canUpdate && (statusName === 'Pending' || statusName === 'Rework Required')
+  const canReport = canUpdate && (statusName === 'In Progress' || statusName === 'Rework Required')
   const canMarkReady = canUpdate && allowedStatuses.includes('Ready for Review') && !isComplete
+
+  const needsPhotos = Boolean(task.require_evidence)
+  const percentValue = Number(progressPct)
+  const percentFilled = progressPct.trim() !== '' && !Number.isNaN(percentValue) && percentValue >= 0 && percentValue <= 100
+  const progressDetailFilled = progressNote.trim() !== '' || workDone.trim() !== ''
+  const reportFilled = completionReport.trim() !== ''
+  const photosFilled = !needsPhotos || evidence.length > 0
+  const progressSteps = [
+    { id: 'progress-percent', label: 'Progress %', done: percentFilled },
+    { id: 'progress-detail', label: 'What changed or work performed', done: progressDetailFilled },
+  ]
+  const submitSteps = [
+    { id: 'submit-report', label: 'Completion report', done: reportFilled },
+    { id: 'submit-confirm', label: 'Confirm the work is finished', done: confirmComplete },
+    ...(needsPhotos ? [{ id: 'submit-photos', label: 'Completion photos', done: photosFilled }] : []),
+  ]
+  const progressReady = progressSteps.every((step) => step.done)
+  const submitReady = submitSteps.every((step) => step.done)
+
+  const revealGaps = (steps: Array<{ id: string; done: boolean }>, mark: (value: boolean) => void) => {
+    mark(true)
+    const first = steps.find((step) => !step.done)
+    if (!first) return
+    if (first.id === 'submit-photos') setTab('photos')
+    setFocusTarget(first.id)
+  }
 
   const markReadyForReview = async () => {
     if (!canMarkReady) return
+    if (!submitReady) {
+      revealGaps(submitSteps, setSubmitAttempted)
+      return
+    }
     setError(null)
     setMessage(null)
     try {
-      await updateMyTaskStatus(taskId, 'Ready for Review')
-      setMessage('Task marked ready for review.')
+      await submitTaskForInspection(taskId, {
+        completion_report: completionReport,
+        confirm_complete: confirmComplete,
+      })
+      setMessage('Submitted for inspection.')
+      setSubmitAttempted(false)
       load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Unable to submit for review.')
+      const text = err instanceof ApiError ? err.message : 'Unable to submit for review.'
+      setError(text)
+      setSubmitAttempted(true)
+      const lower = text.toLowerCase()
+      if (lower.includes('photo') || lower.includes('evidence')) {
+        setTab('photos')
+        setFocusTarget('submit-photos')
+      } else if (lower.includes('confirm')) {
+        setFocusTarget('submit-confirm')
+      } else {
+        setFocusTarget('submit-report')
+      }
     }
   }
 
   return (
     <AppShell>
-      {error ? <Alert variant="danger">{error}</Alert> : null}
+      {error ? (
+        <Alert id="task-page-error" variant="danger" tabIndex={-1}>
+          {error}
+        </Alert>
+      ) : null}
       {message ? <Alert variant="success">{message}</Alert> : null}
 
       <div className="task-hero">
@@ -189,6 +292,222 @@ export function TaskDetailPage() {
           </div>
           <ProgressBar value={progress} />
         </div>
+
+        <p className={`deadline-readout${overdue ? ' is-overdue' : ''}`}>
+          {overdue ? 'OVERDUE' : countdown}
+          {overdue ? <span className="visually-hidden"> past the deadline</span> : null}
+        </p>
+        {task.rework_notes ? (
+          <Alert variant="warning">
+            Rework required ({String(task.rework_count || 0)} cycle
+            {Number(task.rework_count) === 1 ? '' : 's'}): {String(task.rework_notes)}
+          </Alert>
+        ) : null}
+        {statusName === 'Ready for Review' ? (
+          <p className="text-muted">Awaiting inspection. This task is out of your active queue.</p>
+        ) : null}
+        <div className="d-flex flex-wrap gap-2 mb-3">
+          {canStart ? (
+            <button
+              type="button"
+              className="btn btn-accent"
+              onClick={() => void updateMyTaskStatus(taskId, 'In Progress').then(() => load())}
+            >
+              Start task
+            </button>
+          ) : null}
+        </div>
+        {canReport ? (
+          <Form
+            className="form-grid mb-3"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (!progressReady) {
+                revealGaps(progressSteps, setProgressAttempted)
+                return
+              }
+              setError(null)
+              void addTaskProgress(taskId, {
+                percentage: Number(progressPct),
+                description: progressNote,
+                work_performed: workDone,
+                challenges,
+              })
+                .then(() => {
+                  setMessage('Progress recorded.')
+                  setProgressNote('')
+                  setWorkDone('')
+                  setChallenges('')
+                  setProgressAttempted(false)
+                  load()
+                })
+                .catch((err: unknown) => {
+                  const text = err instanceof ApiError ? err.message : 'Unable to save progress.'
+                  setError(text)
+                  setProgressAttempted(true)
+                  setFocusTarget(text.toLowerCase().includes('percentage') ? 'progress-percent' : 'progress-detail')
+                })
+            }}
+          >
+            <AreaProgress
+              title="Progress update"
+              steps={progressSteps}
+              attempted={progressAttempted}
+              onJump={(id) => setFocusTarget(id)}
+            />
+            <Form.Group>
+              <Form.Label>Progress %</Form.Label>
+              <Form.Control
+                id="progress-percent"
+                type="number"
+                min={0}
+                max={100}
+                value={progressPct}
+                isInvalid={progressAttempted && !percentFilled}
+                onChange={(e) => setProgressPct(e.target.value)}
+              />
+              {progressAttempted && !percentFilled ? (
+                <div className="field-error">Enter a progress percentage from 0 to 100.</div>
+              ) : null}
+            </Form.Group>
+            <Form.Group>
+              <Form.Label>What changed</Form.Label>
+              <Form.Control
+                id="progress-detail"
+                value={progressNote}
+                isInvalid={progressAttempted && !progressDetailFilled}
+                onChange={(e) => setProgressNote(e.target.value)}
+              />
+              {progressAttempted && !progressDetailFilled ? (
+                <div className="field-error">Describe what changed or the work performed.</div>
+              ) : null}
+            </Form.Group>
+            <Form.Group className="form-grid__full">
+              <Form.Label>Work performed</Form.Label>
+              <Form.Control
+                id="progress-work"
+                value={workDone}
+                isInvalid={progressAttempted && !progressDetailFilled}
+                onChange={(e) => setWorkDone(e.target.value)}
+              />
+            </Form.Group>
+            <Form.Group className="form-grid__full">
+              <Form.Label>Challenges</Form.Label>
+              <Form.Control value={challenges} onChange={(e) => setChallenges(e.target.value)} />
+            </Form.Group>
+            <div className="form-grid__full">
+              <button
+                type="submit"
+                className="btn btn-outline-secondary"
+                aria-disabled={!progressReady}
+                onClick={(event) => {
+                  if (!progressReady) {
+                    event.preventDefault()
+                    revealGaps(progressSteps, setProgressAttempted)
+                  }
+                }}
+              >
+                Save progress
+              </button>
+            </div>
+          </Form>
+        ) : null}
+        {canReport ? (
+          <Form
+            className="form-grid mb-3"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (!submitReady) {
+                revealGaps(submitSteps, setSubmitAttempted)
+                return
+              }
+              setError(null)
+              void submitTaskForInspection(taskId, {
+                completion_report: completionReport,
+                confirm_complete: confirmComplete,
+              })
+                .then(() => {
+                  setMessage('Submitted for inspection.')
+                  setSubmitAttempted(false)
+                  load()
+                })
+                .catch((err: unknown) => {
+                  const text = err instanceof ApiError ? err.message : 'Unable to submit task.'
+                  setError(text)
+                  setSubmitAttempted(true)
+                  const lower = text.toLowerCase()
+                  if (lower.includes('photo') || lower.includes('evidence')) {
+                    setTab('photos')
+                    setFocusTarget('submit-photos')
+                  } else if (lower.includes('confirm')) {
+                    setFocusTarget('submit-confirm')
+                  } else {
+                    setFocusTarget('submit-report')
+                  }
+                })
+            }}
+          >
+            <AreaProgress
+              title="Inspection submission"
+              steps={submitSteps}
+              attempted={submitAttempted}
+              onJump={(id) => {
+                if (id === 'submit-photos') setTab('photos')
+                setFocusTarget(id)
+              }}
+            />
+            <Form.Group className="form-grid__full">
+              <Form.Label>Completion report</Form.Label>
+              <Form.Control
+                id="submit-report"
+                as="textarea"
+                rows={3}
+                value={completionReport}
+                isInvalid={submitAttempted && !reportFilled}
+                onChange={(e) => setCompletionReport(e.target.value)}
+              />
+              {submitAttempted && !reportFilled ? (
+                <div className="field-error">Completion report is required.</div>
+              ) : null}
+            </Form.Group>
+            <Form.Group className="form-grid__full">
+              <Form.Check
+                id="submit-confirm"
+                label="The required work is finished"
+                checked={confirmComplete}
+                isInvalid={submitAttempted && !confirmComplete}
+                onChange={(e) => setConfirmComplete(e.target.checked)}
+              />
+              {submitAttempted && !confirmComplete ? (
+                <div className="field-error">Confirm that the required work is finished.</div>
+              ) : null}
+            </Form.Group>
+            <div className="form-grid__full">
+              <button
+                type="submit"
+                className="btn btn-accent"
+                aria-disabled={!submitReady}
+                onClick={(event) => {
+                  if (!submitReady) {
+                    event.preventDefault()
+                    revealGaps(submitSteps, setSubmitAttempted)
+                  }
+                }}
+              >
+                Submit for inspection
+              </button>
+            </div>
+          </Form>
+        ) : null}
+        {reports.length > 0 ? (
+          <ul className="activity-feed">
+            {reports.map((row) => (
+              <li key={String(row.id)}>
+                {String(row.percentage)}% — {String(row.description || row.work_performed || 'Update')}
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
         <div className="filter-tabs task-detail-tabs" role="tablist">
           {(
@@ -284,14 +603,18 @@ export function TaskDetailPage() {
                 <Form.Group>
                   <Form.Label>File</Form.Label>
                   <Form.Control
+                    id="submit-photos"
                     type="file"
                     accept="image/*,.pdf"
-                    required
+                    isInvalid={submitAttempted && needsPhotos && !photosFilled}
                     onChange={(e) => {
                       const input = e.target as HTMLInputElement
                       setFile(input.files?.[0] ?? null)
                     }}
                   />
+                  {submitAttempted && needsPhotos && !photosFilled ? (
+                    <div className="field-error">Upload completion photos before submitting this task.</div>
+                  ) : null}
                 </Form.Group>
                 <div className="form-grid__full">
                   <button type="submit" className="btn btn-outline-secondary">
@@ -387,12 +710,60 @@ export function TaskDetailPage() {
             Add Note
           </button>
           {canMarkReady ? (
-            <button type="button" className="btn btn-success" onClick={() => void markReadyForReview()}>
+            <button
+              type="button"
+              className="btn btn-success"
+              aria-disabled={!submitReady}
+              onClick={() => void markReadyForReview()}
+            >
               Mark Ready for Review
             </button>
           ) : null}
         </div>
       </section>
     </AppShell>
+  )
+}
+
+function AreaProgress({
+  title,
+  steps,
+  attempted,
+  onJump,
+}: {
+  title: string
+  steps: Array<{ id: string; label: string; done: boolean }>
+  attempted: boolean
+  onJump: (id: string) => void
+}) {
+  const done = steps.filter((step) => step.done).length
+  const remaining = steps.filter((step) => !step.done)
+  const pct = steps.length === 0 ? 0 : Math.round((done / steps.length) * 100)
+  return (
+    <div className="submit-progress form-grid__full" id={`${title.toLowerCase().replace(/\s+/g, '-')}-progress`}>
+      <div className="submit-progress__head">
+        <span>{title}</span>
+        <strong>
+          {remaining.length === 0
+            ? 'All areas complete'
+            : `${remaining.length} area${remaining.length === 1 ? '' : 's'} remaining`}
+        </strong>
+      </div>
+      <ProgressBar value={pct} />
+      {remaining.length > 0 ? (
+        <ul className="submit-progress__remaining">
+          {remaining.map((step) => (
+            <li key={step.id}>
+              <button type="button" onClick={() => onJump(step.id)}>
+                {attempted ? 'Required: ' : 'Still needed: '}
+                {step.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="submit-progress__ready">Every required area is filled.</p>
+      )}
+    </div>
   )
 }

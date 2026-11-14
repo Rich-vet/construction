@@ -19,6 +19,10 @@ from app.models import (
     ProjectMember,
     Task,
     TaskComment,
+    TaskInspection,
+    TaskProgressReport,
+    TaskReminder,
+    User,
 )
 from app.models.project import TASK_STATUSES
 from app.services.activity_service import log_activity
@@ -145,6 +149,7 @@ def list_my_projects(actor: User) -> list[dict]:
 
 
 def list_my_tasks(actor: User, *, status: str | None = None) -> list[dict]:
+    dispatch_due_task_reminders()
     stmt = _my_assigned_tasks_query(actor)
     if status:
         stmt = stmt.where(Task.status == status)
@@ -163,10 +168,30 @@ def get_my_task(actor: User, task_id: int) -> dict:
         ).unique()
     ]
     allowed = worker_allowed_statuses_for(task)
+    reports = [
+        row.to_dict()
+        for row in db.session.scalars(
+            select(TaskProgressReport)
+            .options(joinedload(TaskProgressReport.user))
+            .where(TaskProgressReport.task_id == task.id)
+            .order_by(TaskProgressReport.created_at.desc())
+        ).unique()
+    ]
+    inspections = [
+        row.to_dict()
+        for row in db.session.scalars(
+            select(TaskInspection)
+            .options(joinedload(TaskInspection.inspector))
+            .where(TaskInspection.task_id == task.id)
+            .order_by(TaskInspection.created_at.desc())
+        ).unique()
+    ]
     return {
         "task": task.to_dict(),
         "comments": [c.to_dict() for c in task.comments],
         "evidence": evidence,
+        "progress_reports": reports,
+        "inspections": inspections,
         "can_update": bool(allowed),
         "allowed_statuses": allowed,
         "can_verify": False,
@@ -181,13 +206,21 @@ def update_my_task_status(actor: User, task_id: int, data: dict) -> Task:
 
     status = (data.get("status") or "").strip()
     # Legacy clients sending Completed mean Ready for Review (worker cannot officially complete).
-    if status == "Completed":
-        status = "Ready for Review"
+    if status == "Completed" or status == "Verified":
+        raise WorkerServiceError("You cannot approve or close your own task.", status_code=403)
     allowed = worker_allowed_statuses_for(task)
     if status not in allowed:
         raise WorkerServiceError(
-            "You can set status to Pending, In Progress, or Ready for Review only."
+            "You can start assigned work or submit it for inspection. You cannot approve it."
         )
+    if status == "Ready for Review" and not (task.completion_report or "").strip():
+        raise WorkerServiceError("Submit a completion report before sending this task for inspection.")
+    if status == "Ready for Review" and task.require_evidence:
+        evidence_count = db.session.scalar(
+            select(db.func.count()).select_from(Document).where(Document.task_id == task.id)
+        )
+        if not evidence_count:
+            raise WorkerServiceError("This task requires completion photos before inspection.")
 
     previous = task.status
     task.status = status
@@ -210,10 +243,134 @@ def update_my_task_status(actor: User, task_id: int, data: dict) -> Task:
                     user_id=uid,
                     title="Task ready for review",
                     message=f'{actor.full_name} marked "{task.name}" ready for review on {task.project.name}.',
-                    link=f"/projects/{task.project_id}",
+                    link=f"/projects/{task.project_id}?tab=tasks",
                 )
     db.session.commit()
     return task
+
+
+def add_progress_report(actor: User, task_id: int, data: dict) -> TaskProgressReport:
+    task = _require_own_task(actor, task_id)
+    assert_project_editable(task.project)
+    if normalize_task_status(task.status) not in {"In Progress", "Rework Required"}:
+        raise WorkerServiceError("Progress can be reported only while the task is in progress.")
+    try:
+        percentage = float(data.get("percentage"))
+    except (TypeError, ValueError) as exc:
+        raise WorkerServiceError("Progress percentage must be between 0 and 100.") from exc
+    if percentage < 0 or percentage > 100:
+        raise WorkerServiceError("Progress percentage must be between 0 and 100.")
+    description = (data.get("description") or "").strip()
+    work = (data.get("work_performed") or "").strip()
+    if not description and not work:
+        raise WorkerServiceError("Describe the progress or the work performed.")
+    report = TaskProgressReport(
+        task_id=task.id,
+        user_id=actor.id,
+        percentage=percentage,
+        description=description or None,
+        work_performed=work or None,
+        challenges=(data.get("challenges") or "").strip() or None,
+    )
+    task.progress_percent = percentage
+    if task.status == "Rework Required":
+        task.status = "In Progress"
+    db.session.add(report)
+    db.session.flush()
+    if task.project.site_engineer_id and task.project.site_engineer_id != actor.id:
+        notify_user(
+            user_id=task.project.site_engineer_id,
+            title="Task progress update",
+            message=f'{actor.full_name} reported {int(percentage)}% on "{task.name}".',
+            link=f"/projects/{task.project_id}?tab=tasks",
+        )
+    db.session.commit()
+    return report
+
+
+def submit_for_inspection(actor: User, task_id: int, data: dict) -> Task:
+    task = _require_own_task(actor, task_id)
+    assert_project_editable(task.project)
+    if normalize_task_status(task.status) not in {"In Progress", "Rework Required"}:
+        raise WorkerServiceError("Only active work can be submitted for inspection.")
+    report = (data.get("completion_report") or "").strip()
+    if not report:
+        raise WorkerServiceError("A completion report is required.")
+    if not data.get("confirm_complete"):
+        raise WorkerServiceError("Confirm that the required work is finished.")
+    if task.require_evidence:
+        evidence_count = db.session.scalar(
+            select(db.func.count()).select_from(Document).where(Document.task_id == task.id)
+        )
+        if not evidence_count:
+            raise WorkerServiceError("Upload completion photos before submitting this task.")
+    task.completion_report = report
+    task.submitted_at = datetime.now(timezone.utc)
+    task.status = "Ready for Review"
+    if task.project.site_engineer_id and task.project.site_engineer_id != actor.id:
+        notify_user(
+            user_id=task.project.site_engineer_id,
+            title="Task awaiting inspection",
+            message=f'{actor.full_name} submitted "{task.name}" on {task.project.name} for inspection.',
+            link=f"/projects/{task.project_id}?tab=tasks",
+        )
+    db.session.commit()
+    return task
+
+
+def dispatch_due_task_reminders() -> int:
+    """Create in-app reminders for open tasks. Safe to call on each notification poll."""
+    now = datetime.now(timezone.utc)
+    today = now.date().isoformat()
+    open_statuses = ("Pending", "In Progress", "Rework Required")
+    tasks = db.session.scalars(
+        select(Task)
+        .options(joinedload(Task.project))
+        .where(Task.status.in_(open_statuses), Task.assigned_user_id.is_not(None))
+    ).unique().all()
+    created = 0
+    for task in tasks:
+        deadline = task.deadline()
+        if deadline is None or task.assigned_user_id is None:
+            continue
+        seconds = (deadline - now).total_seconds()
+        bands = ["daily"]
+        if seconds < 0:
+            bands.append("overdue")
+        elif seconds <= 24 * 3600:
+            bands.append("soon")
+        for band in bands:
+            key = f"{task.id}:{today}:{band}"
+            exists = db.session.scalar(
+                select(TaskReminder.id).where(
+                    TaskReminder.task_id == task.id,
+                    TaskReminder.reminder_key == key,
+                )
+            )
+            if exists:
+                continue
+            if band == "overdue":
+                title = "Task overdue"
+                message = f'"{task.name}" is overdue. Submit it or ask the engineer for a new deadline.'
+            elif band == "soon":
+                title = "Task due soon"
+                message = f'"{task.name}" is due within 24 hours ({task.to_dict()["time_remaining_label"]}).'
+            else:
+                title = "Task reminder"
+                message = f'"{task.name}" is still open. {task.to_dict()["time_remaining_label"] or "No deadline set."}'
+            notify_user(
+                user_id=task.assigned_user_id,
+                title=title,
+                message=message,
+                link=f"/tasks/{task.id}",
+            )
+            db.session.add(
+                TaskReminder(task_id=task.id, user_id=task.assigned_user_id, reminder_key=key)
+            )
+            created += 1
+    if created:
+        db.session.commit()
+    return created
 
 
 def add_my_task_comment(actor: User, task_id: int, body: str) -> TaskComment:
@@ -235,7 +392,7 @@ def add_my_task_comment(actor: User, task_id: int, body: str) -> TaskComment:
             user_id=task.project.project_manager_id,
             title="New task comment",
             message=f'{actor.full_name} commented on "{task.name}".',
-            link=f"/projects/{task.project_id}",
+            link=f"/projects/{task.project_id}?tab=tasks",
         )
     db.session.commit()
     return comment
@@ -275,7 +432,7 @@ def upload_task_evidence(actor: User, task_id: int, data: dict, file: FileStorag
             user_id=task.project.site_engineer_id,
             title="Work evidence uploaded",
             message=f'{actor.full_name} uploaded evidence for "{task.name}".',
-            link=f"/projects/{task.project_id}",
+            link=f"/projects/{task.project_id}?tab=tasks",
         )
     db.session.commit()
     return doc

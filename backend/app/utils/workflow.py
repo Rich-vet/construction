@@ -10,10 +10,11 @@ MR_REVIEW_STATUSES = frozenset({"Approved", "Rejected"})
 MR_REVIEWABLE_FROM = frozenset({"Pending"})
 
 # Task lifecycle (legacy "Completed" treated as Verified).
-TASK_WORKER_STATUSES = ("Pending", "In Progress", "Ready for Review")
+TASK_WORKER_STATUSES = ("Pending", "In Progress", "Ready for Review", "Rework Required")
 TASK_VERIFY_FROM = frozenset({"Ready for Review"})
 TASK_VERIFIED = "Verified"
 TASK_LEGACY_DONE = "Completed"
+TASK_OPEN = frozenset({"Pending", "In Progress", "Rework Required"})
 
 
 def normalize_task_status(status: str | None) -> str:
@@ -55,6 +56,8 @@ def can_verify_task(user: User, task: Task) -> bool:
     """Site engineer (or elevated site operator) verifies Ready for Review tasks."""
     if task is None or task.project is None:
         return False
+    if task.assigned_user_id and task.assigned_user_id == user.id:
+        return False
     status = normalize_task_status(task.status)
     if status not in TASK_VERIFY_FROM:
         return False
@@ -65,6 +68,8 @@ def assert_can_verify_task(user: User, task: Task) -> None:
     from app.utils.project_access import ProjectAccessError
 
     status = normalize_task_status(task.status)
+    if task.assigned_user_id and task.assigned_user_id == user.id:
+        raise ProjectAccessError("You cannot approve a task assigned to you.", status_code=403)
     if status not in TASK_VERIFY_FROM:
         raise ProjectAccessError(
             "Only tasks that are Ready for Review can be verified.",
@@ -75,15 +80,15 @@ def assert_can_verify_task(user: User, task: Task) -> None:
 
 
 def worker_allowed_statuses_for(task: Task) -> list[str]:
-    """Statuses a worker may set from the current state."""
+    """Statuses a worker may set from the current state. Approval is never included."""
     status = normalize_task_status(task.status)
-    if status in {TASK_VERIFIED, "Cancelled"}:
+    if status in {TASK_VERIFIED, "Cancelled", "Ready for Review"}:
         return []
-    # Allow returning to earlier open states and submitting for review.
-    allowed = list(TASK_WORKER_STATUSES)
-    if status == TASK_VERIFIED:
-        return []
-    return allowed
+    if status in {"Pending", "Rework Required"}:
+        return ["In Progress"]
+    if status == "In Progress":
+        return ["In Progress", "Ready for Review"]
+    return []
 
 
 def can_approve_expense(user: User, expense: Expense) -> bool:

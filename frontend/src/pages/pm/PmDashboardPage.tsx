@@ -25,6 +25,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { ApiError } from '../../api/auth'
 import { fetchPmDashboard, type PmDashboard } from '../../api/projects'
+import { colorsForLabels, statusColor } from '../../theme/statusColors'
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -97,11 +98,11 @@ export function PmDashboardPage() {
                   datasets: [
                     {
                       data: Object.values(data.status_breakdown),
-                      backgroundColor: ['#64748b', '#f59e0b', '#0ea5e9', '#16a34a', '#ef4444'],
+                      backgroundColor: colorsForLabels(Object.keys(data.status_breakdown)),
                     },
                   ],
                 }}
-                options={{ plugins: { legend: { position: 'bottom' } } }}
+                options={{ plugins: { legend: { position: 'bottom', labels: { color: '#e8eef7' } } } }}
               />
             </section>
 
@@ -171,7 +172,7 @@ export function PmDashboardPage() {
                     {
                       label: 'Progress %',
                       data: data.projects.map((p) => p.progress),
-                      backgroundColor: '#f59e0b',
+                      backgroundColor: data.projects.map((p) => statusColor(p.status)),
                     },
                   ],
                 }}

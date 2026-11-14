@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Alert, Badge, Button, Spinner } from 'react-bootstrap'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
 import { useAuth } from '../../context/AuthContext'
 import { ApiError } from '../../api/auth'
@@ -13,6 +13,7 @@ import {
 
 export function NotificationsPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [items, setItems] = useState<NotificationItem[]>([])
   const [unread, setUnread] = useState(0)
   const [page, setPage] = useState(1)
@@ -71,17 +72,22 @@ export function NotificationsPage() {
     }
   }
 
-  const openRelated = async (note: NotificationItem) => {
+  const openRelated = (note: NotificationItem) => {
+    if (!note.link) return
     if (!note.is_read) {
-      try {
-        await markNotificationRead(note.id)
-        window.dispatchEvent(
-          new CustomEvent('ccms:notifications-changed', { detail: { unread_count: Math.max(unread - 1, 0) } }),
-        )
-      } catch {
-        /* navigation still allowed */
-      }
+      void markNotificationRead(note.id)
+        .then(() => {
+          window.dispatchEvent(
+            new CustomEvent('ccms:notifications-changed', {
+              detail: { unread_count: Math.max(unread - 1, 0) },
+            }),
+          )
+        })
+        .catch(() => {
+          /* still open the related page */
+        })
     }
+    navigate(note.link)
   }
 
   return (
@@ -118,7 +124,19 @@ export function NotificationsPage() {
         <>
           <ul className="notification-list">
             {items.map((note) => (
-              <li key={note.id} className={note.is_read ? 'is-read' : 'is-unread'}>
+              <li
+                key={note.id}
+                className={`${note.is_read ? 'is-read' : 'is-unread'}${note.link ? ' is-actionable' : ''}`}
+                role={note.link ? 'link' : undefined}
+                tabIndex={note.link ? 0 : undefined}
+                onClick={() => openRelated(note)}
+                onKeyDown={(event) => {
+                  if (note.link && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault()
+                    openRelated(note)
+                  }
+                }}
+              >
                 <div className="notification-list__main">
                   <div className="d-flex gap-2 align-items-center mb-1">
                     <strong>{note.title}</strong>
@@ -127,23 +145,18 @@ export function NotificationsPage() {
                   <p className="mb-1">{note.message}</p>
                   <div className="small text-muted">
                     {note.created_at ? new Date(note.created_at).toLocaleString() : '—'}
+                    {note.link ? ' · Open' : ''}
                   </div>
-                  {note.link ? (
-                    <Link
-                      to={note.link}
-                      className="small"
-                      onClick={() => void openRelated(note)}
-                    >
-                      Open related record
-                    </Link>
-                  ) : null}
                 </div>
                 {!note.is_read ? (
                   <Button
                     size="sm"
                     variant="outline-secondary"
                     disabled={busyId === note.id}
-                    onClick={() => void markRead(note.id)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      void markRead(note.id)
+                    }}
                   >
                     Mark read
                   </Button>

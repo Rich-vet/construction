@@ -12,7 +12,7 @@ import {
   taskProgressPercent,
 } from './workerHelpers'
 
-type TabKey = 'today' | 'upcoming' | 'completed' | 'overdue' | 'all'
+type TabKey = 'today' | 'upcoming' | 'inspection' | 'rework' | 'completed' | 'overdue' | 'all'
 
 export function MyTasksPage() {
   const [searchParams] = useSearchParams()
@@ -45,13 +45,23 @@ export function MyTasksPage() {
     const upcoming: typeof filtered = []
     const completed: typeof filtered = []
     const overdue: typeof filtered = []
+    const inspection: typeof filtered = []
+    const rework: typeof filtered = []
     for (const t of filtered) {
       const status = String(t.status)
       if (status === 'Completed' || status === 'Verified') {
         completed.push(t)
         continue
       }
-      if (isOverdue(t.due_date, status)) {
+      if (status === 'Ready for Review') {
+        inspection.push(t)
+        continue
+      }
+      if (status === 'Rework Required') {
+        rework.push(t)
+        continue
+      }
+      if (Boolean(t.is_overdue) || isOverdue(t.due_date, status)) {
         overdue.push(t)
         continue
       }
@@ -61,7 +71,7 @@ export function MyTasksPage() {
       }
       upcoming.push(t)
     }
-    return { today, upcoming, completed, overdue, all: filtered }
+    return { today, upcoming, inspection, rework, completed, overdue, all: filtered }
   }, [filtered])
 
   const visible = buckets[tab]
@@ -84,6 +94,8 @@ export function MyTasksPage() {
           options={[
             { value: 'today', label: `Today (${buckets.today.length})` },
             { value: 'upcoming', label: `Upcoming (${buckets.upcoming.length})` },
+            { value: 'inspection', label: `Awaiting inspection (${buckets.inspection.length})` },
+            { value: 'rework', label: `Rework (${buckets.rework.length})` },
             { value: 'completed', label: `Completed (${buckets.completed.length})` },
             { value: 'overdue', label: `Overdue (${buckets.overdue.length})` },
           ]}

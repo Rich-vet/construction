@@ -11,10 +11,14 @@ import {
   createEquipment,
   fetchEquipment,
   fetchEquipmentAllocations,
+  fetchEquipmentRequests,
   fetchMaintenance,
   fetchSiteMeta,
+  issueEquipmentRequest,
   logMaintenance,
+  requestEquipment,
   returnEquipment,
+  reviewEquipmentRequest,
   type EquipmentAllocationSummary,
   type EquipmentItem,
   type SiteMeta,
@@ -35,6 +39,10 @@ export function EquipmentPage() {
   const [equipment, setEquipment] = useState<EquipmentItem[]>([])
   const [allocations, setAllocations] = useState<EquipmentAllocationSummary[]>([])
   const [maintenance, setMaintenance] = useState<Array<Record<string, unknown>>>([])
+  const [requests, setRequests] = useState<Array<Record<string, unknown>>>([])
+  const [purpose, setPurpose] = useState('')
+  const [returnCondition, setReturnCondition] = useState('Good')
+  const [rejectReason, setRejectReason] = useState('')
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [conditionFilter, setConditionFilter] = useState('')
@@ -56,12 +64,19 @@ export function EquipmentPage() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([fetchSiteMeta(), fetchEquipment(), fetchEquipmentAllocations(), fetchMaintenance()])
-      .then(([m, e, a, maint]) => {
+    Promise.all([
+      fetchSiteMeta(),
+      fetchEquipment(),
+      fetchEquipmentAllocations(),
+      fetchMaintenance(),
+      fetchEquipmentRequests(),
+    ])
+      .then(([m, e, a, maint, reqs]) => {
         setMeta(m)
         setEquipment(e.items)
         setAllocations(a.items as EquipmentAllocationSummary[])
         setMaintenance(maint.items)
+        setRequests(reqs.items)
         if (!projectId && m.projects[0]) setProjectId(String(m.projects[0].id))
       })
       .catch((err: unknown) =>
@@ -141,13 +156,15 @@ export function EquipmentPage() {
     setError(null)
     setMessage(null)
     try {
-      await allocateEquipment({
+      await requestEquipment({
         project_id: Number(projectId),
         equipment_id: selected.id,
         quantity: Number(allocQty),
-        notes: notes || null,
+        purpose: purpose || notes || 'Site allocation',
+        comments: notes || null,
       })
-      setMessage(`${selected.name} allocated to the selected project.`)
+      setMessage(`${selected.name} requested. A project manager must approve it before it is issued.`)
+      setPurpose('')
       setNotes('')
       setAllocQty('1')
       load()
@@ -157,10 +174,10 @@ export function EquipmentPage() {
   }
 
   const onReturn = async (id: number, name: string) => {
-    if (!window.confirm(`Return ${name} from site?`)) return
+    if (!window.confirm(`Return ${name} from site in ${returnCondition} condition?`)) return
     setError(null)
     try {
-      await returnEquipment(id)
+      await returnEquipment(id, { condition: returnCondition })
       setMessage('Equipment returned and stock updated.')
       load()
     } catch (err) {
@@ -213,11 +230,11 @@ export function EquipmentPage() {
     }
   }
 
-  const onCompleteMaint = async (id: number) => {
+  const onCompleteMaint = async (id: number, release = false) => {
     setError(null)
     try {
-      await completeEquipmentMaintenance(id)
-      setMessage('Equipment marked available.')
+      await completeEquipmentMaintenance(id, release)
+      setMessage(release ? 'Equipment released to stock after inspection.' : 'Repairs recorded. Stock stays held until inspection.')
       load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Unable to complete maintenance.')
@@ -300,6 +317,64 @@ export function EquipmentPage() {
           </Form>
         </section>
       ) : null}
+
+      <section className="panel-card mb-4">
+        <h2 className="section-title">Equipment requests</h2>
+        {requests.length === 0 ? (
+          <p className="empty-hint mb-0">No equipment requests.</p>
+        ) : (
+          <ul className="mb-0">
+            {requests.slice(0, 8).map((row) => (
+              <li key={String(row.id)} className="mb-2">
+                <StatusBadge status={String(row.status)} /> {String(row.quantity)} × {String(row.equipment_name)} for{' '}
+                {String(row.project_name)} — {String(row.purpose || '')}
+                {meta?.can_approve_equipment && row.status === 'Pending Approval' ? (
+                  <span className="ms-2">
+                    <Button
+                      size="sm"
+                      variant="success"
+                      onClick={() =>
+                        void reviewEquipmentRequest(Number(row.id), { status: 'Approved' }).then(() => load())
+                      }
+                    >
+                      Approve
+                    </Button>
+                    <Form.Control
+                      size="sm"
+                      className="d-inline-block w-auto ms-2"
+                      placeholder="Rejection reason"
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline-danger"
+                      className="ms-2"
+                      onClick={() =>
+                        void reviewEquipmentRequest(Number(row.id), {
+                          status: 'Rejected',
+                          notes: rejectReason,
+                        }).then(() => load())
+                      }
+                    >
+                      Reject
+                    </Button>
+                  </span>
+                ) : null}
+                {row.status === 'Approved' && (meta?.can_operate_site || meta?.can_approve_equipment) ? (
+                  <Button
+                    size="sm"
+                    className="ms-2"
+                    onClick={() => void issueEquipmentRequest(Number(row.id), {}).then(() => load())}
+                  >
+                    Issue equipment
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="equipment-toolbar" aria-label="Filter equipment">
         <Form.Group>
@@ -477,14 +552,29 @@ export function EquipmentPage() {
                         {row.quantity} unit{row.quantity === 1 ? '' : 's'} on {row.project_name} since{' '}
                         {row.allocated_at}
                         {meta?.can_operate_site ? (
-                          <Button
-                            size="sm"
-                            variant="outline-secondary"
-                            className="ms-2"
-                            onClick={() => void onReturn(row.id, selected.name)}
-                          >
-                            Return
-                          </Button>
+                          <>
+                            <Form.Select
+                              size="sm"
+                              className="d-inline-block w-auto ms-2"
+                              value={returnCondition}
+                              onChange={(e) => setReturnCondition(e.target.value)}
+                              aria-label="Condition on return"
+                            >
+                              {(meta.equipment_conditions || ['Good', 'Poor', 'Damaged', 'Needs inspection']).map(
+                                (condition) => (
+                                  <option key={condition}>{condition}</option>
+                                ),
+                              )}
+                            </Form.Select>
+                            <Button
+                              size="sm"
+                              variant="outline-secondary"
+                              className="ms-2"
+                              onClick={() => void onReturn(row.id, selected.name)}
+                            >
+                              Return
+                            </Button>
+                          </>
                         ) : null}
                       </li>
                     ))}
@@ -523,8 +613,12 @@ export function EquipmentPage() {
                       <Form.Label>Notes</Form.Label>
                       <Form.Control value={notes} onChange={(e) => setNotes(e.target.value)} />
                     </Form.Group>
+                    <Form.Group className="form-grid__full">
+                      <Form.Label>Purpose</Form.Label>
+                      <Form.Control required value={purpose} onChange={(e) => setPurpose(e.target.value)} />
+                    </Form.Group>
                     <div className="form-grid__full">
-                      <Button type="submit">Allocate</Button>
+                      <Button type="submit">Request equipment</Button>
                     </div>
                   </Form>
                 ) : (
@@ -563,13 +657,14 @@ export function EquipmentPage() {
                       Log maintenance
                     </Button>
                     {selected.status === 'Under Maintenance' ? (
-                      <Button
-                        type="button"
-                        variant="outline-success"
-                        onClick={() => void onCompleteMaint(selected.id)}
-                      >
-                        Mark available
-                      </Button>
+                      <>
+                        <Button type="button" variant="outline-secondary" onClick={() => void onCompleteMaint(selected.id, false)}>
+                          Record repairs
+                        </Button>
+                        <Button type="button" variant="outline-success" onClick={() => void onCompleteMaint(selected.id, true)}>
+                          Release after inspection
+                        </Button>
+                      </>
                     ) : null}
                   </div>
                 </Form>

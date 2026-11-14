@@ -17,6 +17,7 @@ from app.models import (
     Document,
     Equipment,
     EquipmentAllocation,
+    EquipmentRequest,
     MaintenanceRecord,
     Material,
     MaterialRequest,
@@ -40,6 +41,8 @@ from app.utils.project_access import (
     ProjectAccessError,
     assert_can_operate_site,
     assert_project_editable,
+    can_manage_project,
+    can_operate_site,
     get_accessible_project,
     projects_query_for,
 )
@@ -531,11 +534,19 @@ def _open_allocated_units(equipment: Equipment) -> int:
 
 
 def _refresh_availability(equipment: Equipment) -> None:
-    """Sync Available/Allocated from remaining units. Leave maintenance and unavailable alone."""
-    if equipment.status in {"Under Maintenance", "Unavailable"}:
+    """Sync status from free, issued, and maintenance-held units."""
+    if equipment.status == "Unavailable":
         return
     total = int(equipment.quantity or 1)
-    equipment.status = "Allocated" if _open_allocated_units(equipment) >= total else "Available"
+    allocated = _open_allocated_units(equipment)
+    held = int(equipment.maintenance_hold or 0)
+    free = max(total - allocated - held, 0)
+    if held > 0 and free == 0 and allocated == 0:
+        equipment.status = "Under Maintenance"
+        return
+    if equipment.status == "Under Maintenance" and held >= total:
+        return
+    equipment.status = "Allocated" if free == 0 and allocated > 0 else "Available"
 
 
 def allocate_equipment(actor: User, data: dict) -> EquipmentAllocation:
@@ -569,6 +580,9 @@ def allocate_equipment(actor: User, data: dict) -> EquipmentAllocation:
         expected_return=_parse_date(data.get("expected_return")),
         notes=(data.get("notes") or "").strip() or None,
         quantity=units,
+        allocation_state="Issued",
+        issued_by_id=actor.id,
+        condition_at_issue=equipment.condition,
     )
     db.session.add(allocation)
     db.session.flush()
@@ -594,17 +608,54 @@ def return_equipment(actor: User, allocation_id: int, data: dict | None = None) 
     if allocation.returned_at is not None:
         raise SiteServiceError("Equipment already returned.")
 
-    allocation.returned_at = _parse_date(data.get("returned_at")) or date.today()
-    if data.get("notes"):
-        allocation.notes = (data.get("notes") or "").strip()
-    if allocation.equipment:
-        condition = (data.get("condition") or "").strip()
-        if condition:
-            if condition not in EQUIPMENT_CONDITIONS:
-                raise SiteServiceError("Invalid equipment condition.")
-            allocation.equipment.condition = condition
-        if allocation.equipment.status in {"Available", "Allocated"}:
-            _refresh_availability(allocation.equipment)
+    equipment = allocation.equipment
+    condition = (data.get("condition") or "").strip()
+    if condition and condition not in EQUIPMENT_CONDITIONS:
+        raise SiteServiceError("Invalid equipment condition.")
+    returned_units = _positive_units(data.get("quantity"), default=int(allocation.quantity or 1))
+    if returned_units > int(allocation.quantity or 1):
+        raise SiteServiceError("You cannot return more units than were issued.")
+    notes = (data.get("notes") or data.get("damage_notes") or "").strip()
+    if notes:
+        allocation.notes = notes
+        allocation.damage_notes = notes
+    if condition:
+        allocation.return_condition = condition
+        if equipment:
+            equipment.condition = condition
+    damaged = condition in {"Poor", "Damaged"}
+    needs_check = condition == "Needs inspection"
+    if needs_check:
+        allocation.allocation_state = "Return Pending"
+        db.session.commit()
+        return allocation
+    if damaged and equipment:
+        equipment.maintenance_hold = int(equipment.maintenance_hold or 0) + returned_units
+        allocation.quantity = int(allocation.quantity or 1) - returned_units
+        if allocation.quantity <= 0:
+            allocation.quantity = returned_units
+            allocation.returned_at = _parse_date(data.get("returned_at")) or date.today()
+            allocation.allocation_state = "Returned"
+        db.session.add(
+            MaintenanceRecord(
+                equipment_id=equipment.id,
+                maintenance_date=date.today(),
+                maintenance_type="Return inspection",
+                description=notes or f"Returned in {condition} condition.",
+                reported_by_id=actor.id,
+                priority="High",
+            )
+        )
+        _refresh_availability(equipment)
+    else:
+        if returned_units < int(allocation.quantity or 1):
+            allocation.quantity = int(allocation.quantity or 1) - returned_units
+            allocation.allocation_state = "Issued"
+        else:
+            allocation.returned_at = _parse_date(data.get("returned_at")) or date.today()
+            allocation.allocation_state = "Returned"
+        if equipment:
+            _refresh_availability(equipment)
     db.session.flush()
     log_activity(
         actor=actor,
@@ -623,18 +674,25 @@ def log_maintenance(actor: User, data: dict) -> MaintenanceRecord:
     equipment = db.session.get(Equipment, int(data.get("equipment_id") or 0))
     if equipment is None:
         raise SiteServiceError("Equipment not found.")
-    mtype = (data.get("maintenance_type") or "").strip()
+    if _open_allocated_units(equipment) > 0:
+        raise SiteServiceError(
+            "Return equipment from site before sending the remaining stock for maintenance."
+        )
+    mtype = (data.get("maintenance_type") or data.get("description") or "").strip()
     if not mtype:
-        raise SiteServiceError("Maintenance type is required.")
+        raise SiteServiceError("Describe the fault or maintenance type.")
     record = MaintenanceRecord(
         equipment_id=equipment.id,
         maintenance_date=_parse_date(data.get("maintenance_date")) or date.today(),
-        maintenance_type=mtype,
-        description=(data.get("description") or "").strip() or None,
+        maintenance_type=mtype[:80],
+        description=(data.get("description") or data.get("fault") or "").strip() or None,
         cost=_as_qty(data.get("cost") or 0),
         service_provider=(data.get("service_provider") or "").strip() or None,
         next_maintenance_date=_parse_date(data.get("next_maintenance_date")),
+        priority=(data.get("priority") or "Medium").strip() or "Medium",
+        reported_by_id=actor.id,
     )
+    equipment.maintenance_hold = int(equipment.quantity or 1)
     equipment.status = "Under Maintenance"
     db.session.add(record)
     db.session.flush()
@@ -647,6 +705,209 @@ def log_maintenance(actor: User, data: dict) -> MaintenanceRecord:
     )
     db.session.commit()
     return record
+
+
+def list_equipment_requests(actor: User) -> list[dict]:
+    stmt = (
+        select(EquipmentRequest)
+        .options(
+            joinedload(EquipmentRequest.equipment),
+            joinedload(EquipmentRequest.project),
+            joinedload(EquipmentRequest.requested_by),
+            joinedload(EquipmentRequest.allocation),
+        )
+        .order_by(EquipmentRequest.created_at.desc())
+    )
+    if actor.role_name == SITE_ENGINEER:
+        stmt = stmt.where(EquipmentRequest.requested_by_id == actor.id)
+    elif actor.role_name == PROJECT_MANAGER:
+        project_ids = [p.id for p in db.session.scalars(projects_query_for(actor))]
+        stmt = stmt.where(EquipmentRequest.project_id.in_(project_ids or [-1]))
+    elif actor.role_name != ADMINISTRATOR:
+        return []
+    return [row.to_dict() for row in db.session.scalars(stmt).unique()]
+
+
+def request_equipment(actor: User, data: dict) -> EquipmentRequest:
+    project = _require_site_project(actor, int(data.get("project_id") or 0))
+    equipment = db.session.get(Equipment, int(data.get("equipment_id") or 0))
+    if equipment is None:
+        raise SiteServiceError("Equipment not found.")
+    if equipment.status == "Under Maintenance" or int(equipment.maintenance_hold or 0) >= int(equipment.quantity or 1):
+        raise SiteServiceError("Equipment under maintenance cannot be requested.")
+    units = _positive_units(data.get("quantity"), default=1)
+    if units > equipment.available_unit_count():
+        raise SiteServiceError("Requested quantity is not available.")
+    purpose = (data.get("purpose") or "").strip()
+    if not purpose:
+        raise SiteServiceError("Describe why this equipment is needed.")
+    issue_date = _parse_date(data.get("requested_issue_date")) or date.today()
+    expected = _parse_date(data.get("expected_return"))
+    if expected and expected < issue_date:
+        raise SiteServiceError("Expected return must be on or after the issue date.")
+    row = EquipmentRequest(
+        equipment_id=equipment.id,
+        project_id=project.id,
+        quantity=units,
+        purpose=purpose,
+        requested_issue_date=issue_date,
+        expected_return=expected,
+        comments=(data.get("comments") or "").strip() or None,
+        status="Pending Approval",
+        requested_by_id=actor.id,
+    )
+    db.session.add(row)
+    db.session.flush()
+    if project.project_manager_id and project.project_manager_id != actor.id:
+        notify_user(
+            user_id=project.project_manager_id,
+            title="Equipment request",
+            message=f"{actor.full_name} requested {units} × {equipment.name} for {project.name}.",
+            link="/equipment",
+        )
+    db.session.commit()
+    return row
+
+
+def review_equipment_request(actor: User, request_id: int, data: dict) -> EquipmentRequest:
+    row = db.session.scalar(
+        select(EquipmentRequest)
+        .options(
+            joinedload(EquipmentRequest.equipment),
+            joinedload(EquipmentRequest.project),
+            joinedload(EquipmentRequest.requested_by),
+        )
+        .where(EquipmentRequest.id == request_id)
+    )
+    if row is None:
+        raise SiteServiceError("Equipment request not found.", status_code=404)
+    project = row.project
+    if not can_manage_project(actor, project):
+        raise SiteServiceError("Only the project manager can approve equipment for this site.", status_code=403)
+    if row.requested_by_id == actor.id:
+        raise SiteServiceError("You cannot approve an equipment request you created.", status_code=403)
+    if row.status != "Pending Approval":
+        raise SiteServiceError("This request has already been reviewed.")
+    decision = (data.get("status") or "").strip()
+    if decision not in {"Approved", "Rejected"}:
+        raise SiteServiceError("Review status must be Approved or Rejected.")
+    notes = (data.get("notes") or "").strip()
+    if decision == "Rejected" and not notes:
+        raise SiteServiceError("A rejection reason is required.")
+    equipment = db.session.get(Equipment, row.equipment_id)
+    if equipment is None:
+        raise SiteServiceError("Equipment not found.")
+    if decision == "Approved":
+        if equipment.status == "Under Maintenance":
+            raise SiteServiceError("Equipment under maintenance cannot be reserved.")
+        if int(row.quantity or 1) > equipment.available_unit_count():
+            raise SiteServiceError("Not enough units are free to reserve this request.")
+        allocation = EquipmentAllocation(
+            equipment_id=equipment.id,
+            project_id=project.id,
+            allocated_at=row.requested_issue_date or date.today(),
+            expected_return=row.expected_return,
+            quantity=int(row.quantity or 1),
+            allocation_state="Reserved",
+            notes=row.purpose,
+        )
+        db.session.add(allocation)
+        db.session.flush()
+        row.allocation_id = allocation.id
+        row.status = "Approved"
+        _refresh_availability(equipment)
+    else:
+        row.status = "Rejected"
+    row.reviewed_by_id = actor.id
+    row.review_notes = notes or None
+    row.reviewed_at = datetime.now(timezone.utc)
+    if row.requested_by_id != actor.id:
+        notify_user(
+            user_id=row.requested_by_id,
+            title=f"Equipment request {row.status.lower()}",
+            message=f"Your request for {equipment.name} was {row.status.lower()}.",
+            link="/equipment",
+        )
+    db.session.commit()
+    return row
+
+
+def issue_equipment_request(actor: User, request_id: int, data: dict) -> EquipmentRequest:
+    row = db.session.scalar(
+        select(EquipmentRequest)
+        .options(
+            joinedload(EquipmentRequest.equipment),
+            joinedload(EquipmentRequest.project),
+            joinedload(EquipmentRequest.allocation),
+        )
+        .where(EquipmentRequest.id == request_id)
+    )
+    if row is None or row.allocation is None:
+        raise SiteServiceError("Approved equipment request not found.", status_code=404)
+    project = get_accessible_project(actor, row.project_id)
+    if not (can_manage_project(actor, project) or can_operate_site(actor, project)):
+        raise SiteServiceError("You cannot issue equipment for this site.", status_code=403)
+    if row.status != "Approved" or row.allocation.allocation_state != "Reserved":
+        raise SiteServiceError("Only reserved, approved equipment can be issued.")
+    if row.equipment and row.equipment.status == "Under Maintenance":
+        raise SiteServiceError("Equipment under maintenance cannot be issued.")
+    received_id = data.get("received_by_id")
+    row.allocation.allocation_state = "Issued"
+    row.allocation.issued_by_id = actor.id
+    row.allocation.condition_at_issue = (data.get("condition") or row.equipment.condition if row.equipment else None)
+    if received_id:
+        receiver = db.session.get(User, int(received_id))
+        if receiver is None:
+            raise SiteServiceError("Receiving user was not found.")
+        row.allocation.received_by_id = receiver.id
+    if data.get("notes"):
+        row.allocation.notes = (data.get("notes") or "").strip()
+    row.status = "Issued"
+    db.session.commit()
+    return row
+
+
+def inspect_equipment_return(actor: User, allocation_id: int, data: dict) -> EquipmentAllocation:
+    allocation = db.session.get(EquipmentAllocation, allocation_id)
+    if allocation is None:
+        raise SiteServiceError("Allocation not found.", status_code=404)
+    project = get_accessible_project(actor, allocation.project_id)
+    if not can_manage_project(actor, project):
+        raise SiteServiceError("Only the project manager can close a return inspection.", status_code=403)
+    if (allocation.allocation_state or "") != "Return Pending":
+        raise SiteServiceError("This allocation is not waiting for return inspection.")
+    passed = bool(data.get("passed"))
+    equipment = allocation.equipment
+    notes = (data.get("notes") or "").strip()
+    if passed:
+        allocation.returned_at = date.today()
+        allocation.allocation_state = "Returned"
+        allocation.return_condition = allocation.return_condition or "Good"
+        if equipment:
+            _refresh_availability(equipment)
+    else:
+        if not notes:
+            raise SiteServiceError("Describe why the equipment failed inspection.")
+        units = int(allocation.quantity or 1)
+        if equipment:
+            equipment.maintenance_hold = int(equipment.maintenance_hold or 0) + units
+            equipment.condition = "Damaged"
+            db.session.add(
+                MaintenanceRecord(
+                    equipment_id=equipment.id,
+                    maintenance_date=date.today(),
+                    maintenance_type="Failed return inspection",
+                    description=notes,
+                    reported_by_id=actor.id,
+                    priority="High",
+                )
+            )
+            _refresh_availability(equipment)
+        allocation.returned_at = date.today()
+        allocation.allocation_state = "Returned"
+        allocation.damage_notes = notes
+    db.session.commit()
+    return allocation
 
 
 def list_progress_updates(actor: User, project_id: int | None = None) -> list[dict]:
@@ -922,4 +1183,6 @@ def site_meta(actor: User) -> dict:
         "document_types": ["Photo", "Drawing", "Permit", "Report", "Work Evidence", "Other"],
         "can_manage_catalog": actor.role_name in {ADMINISTRATOR, PROJECT_MANAGER},
         "can_operate_site": actor.role_name in {PROJECT_MANAGER, SITE_ENGINEER},
+        "can_approve_equipment": actor.role_name in {ADMINISTRATOR, PROJECT_MANAGER},
+        "equipment_request_statuses": ["Pending Approval", "Approved", "Rejected", "Issued"],
     }

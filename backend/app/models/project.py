@@ -2,15 +2,26 @@
 
 from __future__ import annotations
 
+import json
+from datetime import datetime, time, timezone
 from decimal import Decimal
 
 from app.extensions import db
 from app.models.base import utcnow
 
 PROJECT_STATUSES = ("Planned", "Active", "On Hold", "Completed", "Cancelled")
-# Verified = officially done (SE). Legacy "Completed" may still exist in older rows.
-TASK_STATUSES = ("Pending", "In Progress", "Ready for Review", "Verified", "Cancelled", "Completed")
-TASK_PRIORITIES = ("Low", "Medium", "High", "Urgent")
+# Verified = approved work. Ready for Review = awaiting inspection.
+# Rework Required returns the same task to the worker. Legacy Completed == Verified.
+TASK_STATUSES = (
+    "Pending",
+    "In Progress",
+    "Ready for Review",
+    "Rework Required",
+    "Verified",
+    "Cancelled",
+    "Completed",
+)
+TASK_PRIORITIES = ("Low", "Medium", "High", "Urgent", "Critical")
 BUDGET_CATEGORIES = ("Materials", "Labour", "Equipment", "Transport", "Other")
 REQUEST_STATUSES = ("Pending", "Approved", "Rejected", "Fulfilled")
 PO_STATUSES = ("Draft", "Approved", "Ordered", "Delivered", "Cancelled")
@@ -118,6 +129,17 @@ class Task(db.Model):
     due_date = db.Column(db.Date, nullable=True)
     priority = db.Column(db.String(20), nullable=False, default="Medium")
     status = db.Column(db.String(40), nullable=False, default="Pending", index=True)
+    instructions = db.Column(db.Text, nullable=True)
+    checklist_json = db.Column(db.Text, nullable=True)
+    due_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    progress_percent = db.Column(db.Float, nullable=False, default=0)
+    completion_report = db.Column(db.Text, nullable=True)
+    submitted_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    approved_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    approved_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    rework_count = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    rework_notes = db.Column(db.Text, nullable=True)
+    require_evidence = db.Column(db.Boolean, nullable=False, default=False, server_default="0")
     created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow, onupdate=utcnow)
@@ -125,27 +147,173 @@ class Task(db.Model):
     project = db.relationship("Project", back_populates="tasks")
     assigned_user = db.relationship("User", foreign_keys=[assigned_user_id])
     created_by = db.relationship("User", foreign_keys=[created_by_id])
+    approved_by = db.relationship("User", foreign_keys=[approved_by_id])
     comments = db.relationship("TaskComment", back_populates="task", cascade="all, delete-orphan")
+    progress_reports = db.relationship(
+        "TaskProgressReport",
+        back_populates="task",
+        cascade="all, delete-orphan",
+    )
+    inspections = db.relationship(
+        "TaskInspection",
+        back_populates="task",
+        cascade="all, delete-orphan",
+    )
+
+    def deadline(self) -> datetime | None:
+        if self.due_at is not None:
+            value = self.due_at
+            if value.tzinfo is None:
+                return value.replace(tzinfo=timezone.utc)
+            return value
+        if self.due_date is not None:
+            return datetime.combine(self.due_date, time(23, 59), tzinfo=timezone.utc)
+        return None
+
+    def checklist(self) -> list[str]:
+        if not self.checklist_json:
+            return []
+        try:
+            parsed = json.loads(self.checklist_json)
+        except (TypeError, ValueError):
+            return []
+        if not isinstance(parsed, list):
+            return []
+        return [str(item).strip() for item in parsed if str(item).strip()]
 
     def to_dict(self) -> dict:
         status = self.status
         if status == "Completed":
             status = "Verified"
+        deadline = self.deadline()
+        now = datetime.now(timezone.utc)
+        seconds = int((deadline - now).total_seconds()) if deadline else None
+        closed = status in {"Verified", "Cancelled"}
+        overdue = bool(seconds is not None and seconds < 0 and not closed)
         return {
             "id": self.id,
             "project_id": self.project_id,
             "project_name": self.project.name if self.project else None,
             "name": self.name,
             "description": self.description,
+            "instructions": self.instructions,
+            "checklist": self.checklist(),
             "assigned_user_id": self.assigned_user_id,
             "assigned_user_name": self.assigned_user.full_name if self.assigned_user else None,
             "assigned_by_name": self.created_by.full_name if self.created_by else None,
+            "created_by_id": self.created_by_id,
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "due_date": self.due_date.isoformat() if self.due_date else None,
+            "due_at": deadline.isoformat() if deadline else None,
+            "deadline_at": deadline.isoformat() if deadline else None,
+            "seconds_remaining": seconds,
+            "is_overdue": overdue,
+            "time_remaining_label": _remaining_label(seconds, overdue, deadline is not None),
             "priority": self.priority,
             "status": status,
+            "progress_percent": float(self.progress_percent or 0),
+            "completion_report": self.completion_report,
+            "submitted_at": self.submitted_at.isoformat() if self.submitted_at else None,
+            "approved_at": self.approved_at.isoformat() if self.approved_at else None,
+            "approved_by_name": self.approved_by.full_name if self.approved_by else None,
+            "rework_count": int(self.rework_count or 0),
+            "rework_notes": self.rework_notes,
+            "require_evidence": bool(self.require_evidence),
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+def _remaining_label(seconds: int | None, overdue: bool, has_deadline: bool) -> str | None:
+    if not has_deadline or seconds is None:
+        return None
+    if overdue:
+        return "OVERDUE"
+    minutes = max(seconds, 0) // 60
+    days, minutes = divmod(minutes, 60 * 24)
+    hours, minutes = divmod(minutes, 60)
+    return f"{days} days, {hours:02d} hours, {minutes:02d} minutes remaining"
+
+
+class TaskProgressReport(db.Model):
+    """Historical worker progress. Earlier rows are never overwritten."""
+
+    __tablename__ = "task_progress_reports"
+
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.Integer, db.ForeignKey("tasks.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    percentage = db.Column(db.Float, nullable=False, default=0)
+    description = db.Column(db.Text, nullable=True)
+    work_performed = db.Column(db.Text, nullable=True)
+    challenges = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+    task = db.relationship("Task", back_populates="progress_reports")
+    user = db.relationship("User")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "task_id": self.task_id,
+            "user_id": self.user_id,
+            "user_name": self.user.full_name if self.user else None,
+            "percentage": float(self.percentage or 0),
+            "description": self.description,
+            "work_performed": self.work_performed,
+            "challenges": self.challenges,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class TaskInspection(db.Model):
+    """Approval or rework decision. Each cycle is a new row on the same task."""
+
+    __tablename__ = "task_inspections"
+
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.Integer, db.ForeignKey("tasks.id"), nullable=False, index=True)
+    inspector_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    outcome = db.Column(db.String(40), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    correction_instructions = db.Column(db.Text, nullable=True)
+    completion_report = db.Column(db.Text, nullable=True)
+    new_deadline = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+    task = db.relationship("Task", back_populates="inspections")
+    inspector = db.relationship("User")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "task_id": self.task_id,
+            "inspector_id": self.inspector_id,
+            "inspector_name": self.inspector.full_name if self.inspector else None,
+            "outcome": self.outcome,
+            "notes": self.notes,
+            "correction_instructions": self.correction_instructions,
+            "completion_report": self.completion_report,
+            "new_deadline": self.new_deadline.isoformat() if self.new_deadline else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class TaskReminder(db.Model):
+    """One row per reminder band so daily notices are not sent twice."""
+
+    __tablename__ = "task_reminders"
+    __table_args__ = (
+        db.UniqueConstraint("task_id", "reminder_key", name="uq_task_reminder_key"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.Integer, db.ForeignKey("tasks.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    reminder_key = db.Column(db.String(80), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+    task = db.relationship("Task")
+    user = db.relationship("User")
 
 
 class TaskComment(db.Model):

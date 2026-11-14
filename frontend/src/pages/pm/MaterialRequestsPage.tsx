@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Alert, Button, Form, Spinner, Table } from 'react-bootstrap'
+import { useSearchParams } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
 import { useAuth } from '../../context/AuthContext'
 import { ApiError } from '../../api/auth'
@@ -13,6 +14,8 @@ import {
 
 export function MaterialRequestsPage() {
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
+  const focusId = searchParams.get('request')
   const canReview = user?.role === 'Administrator' || user?.role === 'Project Manager'
   const canCreate = canReview || user?.role === 'Site Engineer'
   const [items, setItems] = useState<Array<Record<string, unknown>>>([])
@@ -46,6 +49,11 @@ export function MaterialRequestsPage() {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!focusId || loading) return
+    document.getElementById(`material-request-${focusId}`)?.scrollIntoView({ block: 'center' })
+  }, [focusId, loading, items])
 
   const review = async (id: number, status: string) => {
     setError(null)
@@ -171,7 +179,11 @@ export function MaterialRequestsPage() {
             </thead>
             <tbody>
               {items.map((r) => (
-                <tr key={String(r.id)}>
+                <tr
+                  key={String(r.id)}
+                  id={`material-request-${String(r.id)}`}
+                  className={focusId === String(r.id) ? 'is-focused' : undefined}
+                >
                   <td>{String(r.project_name)}</td>
                   <td>{String(r.material_name)}</td>
                   <td>

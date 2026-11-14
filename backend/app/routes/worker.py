@@ -84,6 +84,34 @@ def update_task_status(task_id: int):
     return jsonify({"message": "Task status updated.", "task": task.to_dict()})
 
 
+@worker_bp.post("/tasks/<int:task_id>/progress")
+@roles_required(CONTRACTOR_WORKER)
+@csrf.exempt
+def add_progress(task_id: int):
+    _require_csrf()
+    try:
+        report = worker_service.add_progress_report(
+            _actor(), task_id, request.get_json(silent=True) or {}
+        )
+    except Exception as exc:
+        return _handle(exc)
+    return jsonify({"message": "Progress recorded.", "report": report.to_dict()}), 201
+
+
+@worker_bp.post("/tasks/<int:task_id>/submit")
+@roles_required(CONTRACTOR_WORKER)
+@csrf.exempt
+def submit_task(task_id: int):
+    _require_csrf()
+    try:
+        task = worker_service.submit_for_inspection(
+            _actor(), task_id, request.get_json(silent=True) or {}
+        )
+    except Exception as exc:
+        return _handle(exc)
+    return jsonify({"message": "Task submitted for inspection.", "task": task.to_dict()})
+
+
 @worker_bp.post("/tasks/<int:task_id>/comments")
 @roles_required(CONTRACTOR_WORKER)
 @csrf.exempt

@@ -36,6 +36,8 @@ export function fetchMyTask(taskId: number) {
     task: Record<string, unknown>
     comments: Array<Record<string, unknown>>
     evidence: Array<Record<string, unknown>>
+    progress_reports?: Array<Record<string, unknown>>
+    inspections?: Array<Record<string, unknown>>
     can_update: boolean
     allowed_statuses: string[]
   }>(`/api/worker/tasks/${taskId}`)
@@ -45,6 +47,22 @@ export function updateMyTaskStatus(taskId: number, status: string) {
   return apiRequest(`/api/worker/tasks/${taskId}/status`, {
     method: 'PUT',
     body: { status },
+    csrf: true,
+  })
+}
+
+export function addTaskProgress(taskId: number, payload: Record<string, unknown>) {
+  return apiRequest(`/api/worker/tasks/${taskId}/progress`, {
+    method: 'POST',
+    body: payload,
+    csrf: true,
+  })
+}
+
+export function submitTaskForInspection(taskId: number, payload: Record<string, unknown>) {
+  return apiRequest(`/api/worker/tasks/${taskId}/submit`, {
+    method: 'POST',
+    body: payload,
     csrf: true,
   })
 }

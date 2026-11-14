@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+import json
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import func, or_, select
@@ -26,6 +27,7 @@ from app.models import (
     Supplier,
     Task,
     TaskComment,
+    TaskInspection,
     User,
 )
 from app.models.project import (
@@ -73,6 +75,21 @@ class ProjectServiceError(Exception):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+
+
+def _parse_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ProjectServiceError("Invalid deadline. Use a date and time.") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def _parse_date(value: str | None) -> date | None:
@@ -427,7 +444,8 @@ def project_workspace(actor: User, project_id: int) -> dict:
 
 def create_task(actor: User, data: dict) -> Task:
     project = get_accessible_project(actor, int(data.get("project_id")))
-    assert_can_manage(actor, project)
+    if not (can_manage_project(actor, project) or can_operate_site(actor, project)):
+        raise ProjectAccessError("You can only create tasks on projects you manage or operate.")
     assert_project_editable(project)
 
     name = (data.get("name") or "").strip()
@@ -438,6 +456,9 @@ def create_task(actor: User, data: dict) -> Task:
         raise ProjectServiceError("Invalid priority.")
     start_date = _parse_date(data.get("start_date"))
     due_date = _parse_date(data.get("due_date"))
+    due_at = _parse_datetime(data.get("due_at"))
+    if due_at is not None:
+        due_date = due_at.date()
     if start_date and due_date and due_date < start_date:
         raise ProjectServiceError("Due date must be on or after start date.")
 
@@ -446,18 +467,36 @@ def create_task(actor: User, data: dict) -> Task:
         assigned = db.session.get(User, int(assigned_id))
         if assigned is None:
             raise ProjectServiceError("Assigned worker not found.")
+        member = db.session.scalar(
+            select(ProjectMember).where(
+                ProjectMember.project_id == project.id,
+                ProjectMember.user_id == assigned.id,
+            )
+        )
+        if member is None:
+            raise ProjectServiceError("The selected worker is not authorised for this site.")
     else:
         assigned = None
+
+    checklist = data.get("checklist") or []
+    if isinstance(checklist, str):
+        checklist = [line.strip() for line in checklist.splitlines() if line.strip()]
+    if not isinstance(checklist, list):
+        raise ProjectServiceError("Checklist must be a list of work items.")
 
     task = Task(
         project_id=project.id,
         name=name,
         description=(data.get("description") or "").strip() or None,
+        instructions=(data.get("instructions") or "").strip() or None,
+        checklist_json=json.dumps([str(item).strip() for item in checklist if str(item).strip()]),
         assigned_user_id=assigned.id if assigned else None,
         start_date=start_date,
         due_date=due_date,
+        due_at=due_at,
         priority=priority,
         status="Pending",
+        require_evidence=bool(data.get("require_evidence")),
         created_by_id=actor.id,
     )
     db.session.add(task)
@@ -863,6 +902,17 @@ def verify_task(actor: User, task_id: int) -> Task:
 
     previous = normalize_task_status(task.status)
     task.status = "Verified"
+    task.approved_at = datetime.now(timezone.utc)
+    task.approved_by_id = actor.id
+    db.session.add(
+        TaskInspection(
+            task_id=task.id,
+            inspector_id=actor.id,
+            outcome="Approved",
+            notes="Work meets requirements.",
+            completion_report=task.completion_report,
+        )
+    )
     log_activity(
         actor=actor,
         action=f'Verified task "{task.name}"',
@@ -873,8 +923,67 @@ def verify_task(actor: User, task_id: int) -> Task:
     if task.assigned_user_id and task.assigned_user_id != actor.id:
         notify_user(
             user_id=task.assigned_user_id,
-            title="Task verified",
-            message=f'"{task.name}" on {task.project.name} was verified.',
+            title="Task approved",
+            message=f'"{task.name}" on {task.project.name} was approved.',
+            link=f"/tasks/{task.id}",
+        )
+    db.session.commit()
+    return task
+
+
+def request_task_rework(actor: User, task_id: int, data: dict) -> Task:
+    """Return the same task to the worker with correction instructions and a new deadline."""
+    task = db.session.scalar(
+        select(Task)
+        .options(joinedload(Task.project), joinedload(Task.assigned_user))
+        .where(Task.id == task_id)
+    )
+    if task is None:
+        raise ProjectServiceError("Task not found.", status_code=404)
+    try:
+        assert_can_verify_task(actor, task)
+    except ProjectAccessError as exc:
+        raise ProjectServiceError(exc.message, status_code=exc.status_code) from exc
+
+    instructions = (data.get("instructions") or data.get("correction_instructions") or "").strip()
+    deficiencies = (data.get("deficiencies") or data.get("notes") or "").strip()
+    if not instructions:
+        raise ProjectServiceError("Correction instructions are required.")
+    deadline = _parse_datetime(data.get("new_deadline") or data.get("due_at"))
+    if deadline is None:
+        raise ProjectServiceError("A new deadline is required.")
+    if deadline <= datetime.now(timezone.utc):
+        raise ProjectServiceError("The new deadline must be in the future.")
+
+    task.status = "Rework Required"
+    task.rework_count = int(task.rework_count or 0) + 1
+    task.rework_notes = instructions
+    task.due_at = deadline
+    task.due_date = deadline.date()
+    task.submitted_at = None
+    db.session.add(
+        TaskInspection(
+            task_id=task.id,
+            inspector_id=actor.id,
+            outcome="Rework",
+            notes=deficiencies or None,
+            correction_instructions=instructions,
+            completion_report=task.completion_report,
+            new_deadline=deadline,
+        )
+    )
+    log_activity(
+        actor=actor,
+        action=f'Requested rework on "{task.name}"',
+        entity_type="task",
+        entity_id=task.id,
+        details=instructions,
+    )
+    if task.assigned_user_id:
+        notify_user(
+            user_id=task.assigned_user_id,
+            title="Rework required",
+            message=f'"{task.name}" was returned with corrections. New deadline: {deadline.strftime("%Y-%m-%d %H:%M")} UTC.',
             link=f"/tasks/{task.id}",
         )
     db.session.commit()

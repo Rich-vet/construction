@@ -10,7 +10,9 @@ from app.models.base import utcnow
 ATTENDANCE_STATUSES = ("Present", "Absent", "Late", "Leave")
 TRANSACTION_TYPES = ("PURCHASE", "USAGE", "ADJUSTMENT", "RETURN")
 EQUIPMENT_STATUSES = ("Available", "Allocated", "Under Maintenance", "Unavailable")
-EQUIPMENT_CONDITIONS = ("Excellent", "Good", "Fair", "Poor")
+EQUIPMENT_CONDITIONS = ("Excellent", "Good", "Fair", "Poor", "Damaged", "Needs inspection")
+ALLOCATION_STATES = ("Reserved", "Issued", "Return Pending", "Returned")
+EQUIPMENT_REQUEST_STATUSES = ("Pending Approval", "Approved", "Rejected", "Issued")
 
 
 class Attendance(db.Model):
@@ -99,6 +101,7 @@ class Equipment(db.Model):
     status = db.Column(db.String(40), nullable=False, default="Available", index=True)
     # Units of this catalog asset. One row stays one asset identity (unique asset_id).
     quantity = db.Column(db.Integer, nullable=False, default=1, server_default="1")
+    maintenance_hold = db.Column(db.Integer, nullable=False, default=0, server_default="0")
     description = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
@@ -111,13 +114,15 @@ class Equipment(db.Model):
         return sum(int(row.quantity or 1) for row in self.open_allocations())
 
     def available_unit_count(self) -> int:
-        return max(int(self.quantity or 1) - self.allocated_unit_count(), 0)
+        held = int(self.maintenance_hold or 0)
+        return max(int(self.quantity or 1) - self.allocated_unit_count() - held, 0)
 
     def to_dict(self) -> dict:
         open_rows = self.open_allocations()
         allocated_qty = sum(int(row.quantity or 1) for row in open_rows)
         total_qty = int(self.quantity or 1)
-        available_qty = max(total_qty - allocated_qty, 0)
+        held = int(self.maintenance_hold or 0)
+        available_qty = max(total_qty - allocated_qty - held, 0)
         current = open_rows[0] if open_rows else None
         site_names = []
         for row in open_rows:
@@ -134,6 +139,12 @@ class Equipment(db.Model):
             "quantity": total_qty,
             "allocated_quantity": allocated_qty,
             "available_quantity": available_qty,
+            "maintenance_hold": held,
+            "reserved_quantity": sum(
+                int(row.quantity or 1)
+                for row in open_rows
+                if (row.allocation_state or "Issued") == "Reserved"
+            ),
             "description": self.description,
             "current_project_id": current.project_id if current else None,
             "current_project_name": ", ".join(site_names) if site_names else None,
@@ -143,7 +154,9 @@ class Equipment(db.Model):
                     "project_id": row.project_id,
                     "project_name": row.project.name if row.project else None,
                     "quantity": int(row.quantity or 1),
+                    "allocation_state": row.allocation_state or "Issued",
                     "allocated_at": row.allocated_at.isoformat() if row.allocated_at else None,
+                    "expected_return": row.expected_return.isoformat() if row.expected_return else None,
                     "notes": row.notes,
                 }
                 for row in open_rows
@@ -162,12 +175,20 @@ class EquipmentAllocation(db.Model):
     expected_return = db.Column(db.Date, nullable=True)
     returned_at = db.Column(db.Date, nullable=True)
     quantity = db.Column(db.Integer, nullable=False, default=1, server_default="1")
+    allocation_state = db.Column(db.String(40), nullable=False, default="Issued", server_default="Issued")
+    issued_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    received_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    condition_at_issue = db.Column(db.String(40), nullable=True)
+    return_condition = db.Column(db.String(40), nullable=True)
+    damage_notes = db.Column(db.Text, nullable=True)
     notes = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     equipment = db.relationship("Equipment", back_populates="allocations")
     project = db.relationship("Project")
-    operator = db.relationship("User")
+    operator = db.relationship("User", foreign_keys=[operator_user_id])
+    issued_by = db.relationship("User", foreign_keys=[issued_by_id])
+    received_by = db.relationship("User", foreign_keys=[received_by_id])
 
     def to_dict(self) -> dict:
         return {
@@ -179,6 +200,12 @@ class EquipmentAllocation(db.Model):
             "operator_user_id": self.operator_user_id,
             "operator_name": self.operator.full_name if self.operator else None,
             "quantity": int(self.quantity or 1),
+            "allocation_state": self.allocation_state or "Issued",
+            "condition_at_issue": self.condition_at_issue,
+            "return_condition": self.return_condition,
+            "damage_notes": self.damage_notes,
+            "issued_by_name": self.issued_by.full_name if self.issued_by else None,
+            "received_by_name": self.received_by.full_name if self.received_by else None,
             "allocated_at": self.allocated_at.isoformat() if self.allocated_at else None,
             "expected_return": self.expected_return.isoformat() if self.expected_return else None,
             "returned_at": self.returned_at.isoformat() if self.returned_at else None,
@@ -197,15 +224,24 @@ class MaintenanceRecord(db.Model):
     cost = db.Column(db.Numeric(14, 2), nullable=True, default=Decimal("0"))
     service_provider = db.Column(db.String(120), nullable=True)
     next_maintenance_date = db.Column(db.Date, nullable=True)
+    priority = db.Column(db.String(20), nullable=True)
+    reported_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    completed_at = db.Column(db.Date, nullable=True)
+    inspection_result = db.Column(db.String(40), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     equipment = db.relationship("Equipment")
+    reported_by = db.relationship("User")
 
     def to_dict(self) -> dict:
         return {
             "id": self.id,
             "equipment_id": self.equipment_id,
             "equipment_name": self.equipment.name if self.equipment else None,
+            "priority": self.priority,
+            "reported_by_name": self.reported_by.full_name if self.reported_by else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "inspection_result": self.inspection_result,
             "maintenance_date": (
                 self.maintenance_date.isoformat() if self.maintenance_date else None
             ),
@@ -216,6 +252,60 @@ class MaintenanceRecord(db.Model):
             "next_maintenance_date": (
                 self.next_maintenance_date.isoformat() if self.next_maintenance_date else None
             ),
+        }
+
+
+class EquipmentRequest(db.Model):
+    """Site request to reserve equipment. Approval does not hand the asset over."""
+
+    __tablename__ = "equipment_requests"
+
+    id = db.Column(db.Integer, primary_key=True)
+    equipment_id = db.Column(db.Integer, db.ForeignKey("equipment.id"), nullable=False, index=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False, index=True)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    purpose = db.Column(db.Text, nullable=True)
+    requested_issue_date = db.Column(db.Date, nullable=True)
+    expected_return = db.Column(db.Date, nullable=True)
+    comments = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(40), nullable=False, default="Pending Approval", index=True)
+    requested_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    review_notes = db.Column(db.Text, nullable=True)
+    allocation_id = db.Column(db.Integer, db.ForeignKey("equipment_allocations.id"), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+    reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    equipment = db.relationship("Equipment")
+    project = db.relationship("Project")
+    requested_by = db.relationship("User", foreign_keys=[requested_by_id])
+    reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id])
+    allocation = db.relationship("EquipmentAllocation")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "equipment_id": self.equipment_id,
+            "equipment_name": self.equipment.name if self.equipment else None,
+            "asset_id": self.equipment.asset_id if self.equipment else None,
+            "project_id": self.project_id,
+            "project_name": self.project.name if self.project else None,
+            "quantity": int(self.quantity or 1),
+            "purpose": self.purpose,
+            "requested_issue_date": (
+                self.requested_issue_date.isoformat() if self.requested_issue_date else None
+            ),
+            "expected_return": self.expected_return.isoformat() if self.expected_return else None,
+            "comments": self.comments,
+            "status": self.status,
+            "requested_by_id": self.requested_by_id,
+            "requested_by_name": self.requested_by.full_name if self.requested_by else None,
+            "reviewed_by_name": self.reviewed_by.full_name if self.reviewed_by else None,
+            "review_notes": self.review_notes,
+            "allocation_id": self.allocation_id,
+            "allocation_state": self.allocation.allocation_state if self.allocation else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
         }
 
 

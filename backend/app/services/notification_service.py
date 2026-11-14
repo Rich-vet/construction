@@ -128,6 +128,9 @@ def ensure_material_request_notifications() -> None:
 
 
 def unread_count(user_id: int) -> int:
+    from app.services.worker_service import dispatch_due_task_reminders
+
+    dispatch_due_task_reminders()
     ensure_material_request_notifications()
     return (
         db.session.scalar(

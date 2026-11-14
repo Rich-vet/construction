@@ -29,6 +29,7 @@ export type SiteMeta = {
   document_types: string[]
   can_manage_catalog?: boolean
   can_operate_site?: boolean
+  can_approve_equipment?: boolean
 }
 
 export type EquipmentAllocationSummary = {
@@ -39,6 +40,7 @@ export type EquipmentAllocationSummary = {
   allocated_at: string | null
   notes: string | null
   returned_at?: string | null
+  allocation_state?: string | null
   equipment_id?: number
   equipment_name?: string | null
 }
@@ -111,6 +113,30 @@ export function fetchEquipmentAllocations(projectId?: number) {
   )
 }
 
+export function fetchEquipmentRequests() {
+  return apiRequest<{ items: Array<Record<string, unknown>> }>('/api/site/equipment/requests')
+}
+
+export function requestEquipment(payload: Record<string, unknown>) {
+  return apiRequest('/api/site/equipment/requests', { method: 'POST', body: payload, csrf: true })
+}
+
+export function reviewEquipmentRequest(id: number, payload: Record<string, unknown>) {
+  return apiRequest(`/api/site/equipment/requests/${id}/review`, {
+    method: 'POST',
+    body: payload,
+    csrf: true,
+  })
+}
+
+export function issueEquipmentRequest(id: number, payload: Record<string, unknown>) {
+  return apiRequest(`/api/site/equipment/requests/${id}/issue`, {
+    method: 'POST',
+    body: payload,
+    csrf: true,
+  })
+}
+
 export function allocateEquipment(payload: Record<string, unknown>) {
   return apiRequest('/api/site/equipment/allocate', { method: 'POST', body: payload, csrf: true })
 }
@@ -154,10 +180,10 @@ export function updateEquipment(id: number, payload: Record<string, unknown>) {
   return apiRequest(`/api/site/equipment/${id}`, { method: 'PUT', body: payload, csrf: true })
 }
 
-export function completeEquipmentMaintenance(id: number) {
+export function completeEquipmentMaintenance(id: number, release = false) {
   return apiRequest(`/api/site/equipment/${id}/complete-maintenance`, {
     method: 'POST',
-    body: {},
+    body: { release },
     csrf: true,
   })
 }

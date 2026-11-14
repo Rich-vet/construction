@@ -1310,6 +1310,22 @@ code {
   border-radius: var(--radius-md);
 }
 
+.notification-list li.is-actionable {
+  cursor: pointer;
+  border-radius: var(--radius-md);
+}
+
+.notification-list li.is-actionable:hover,
+.notification-list li.is-actionable:focus-visible {
+  background: rgba(251, 191, 36, 0.12);
+  outline: none;
+}
+
+tr.is-focused {
+  outline: 1px solid var(--ccms-amber);
+  outline-offset: -1px;
+}
+
 .empty-hint,
 .empty-panel p {
   margin: 0;
@@ -1361,6 +1377,97 @@ code {
   gap: var(--space-2);
 }
 
+.submit-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.submit-progress__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--ccms-text-muted);
+  font-size: 0.92rem;
+}
+
+.submit-progress__head strong {
+  color: var(--ccms-text);
+}
+
+.submit-progress__remaining {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.submit-progress__remaining button {
+  width: 100%;
+  text-align: left;
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  border-radius: var(--radius-md);
+  padding: 0.45rem 0.7rem;
+}
+
+.submit-progress__remaining button:hover,
+.submit-progress__remaining button:focus-visible {
+  background: rgba(248, 113, 113, 0.2);
+  outline: none;
+}
+
+.submit-progress__ready {
+  margin: 0;
+  color: var(--ccms-success);
+}
+
+.field-error {
+  color: #fecaca;
+  font-size: 0.85rem;
+  margin-top: 0.3rem;
+}
+
+.btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.detail-panel {
+  container-type: inline-size;
+}
+
+.project-hero {
+  display: grid;
+  grid-template-columns: minmax(11rem, 0.85fr) minmax(0, 1.35fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.project-hero__media {
+  margin: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--ccms-surface-muted);
+}
+
+.project-hero__media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  max-height: 460px;
+  object-fit: cover;
+  object-position: center 18%;
+}
+
+.project-hero__body {
+  min-width: 0;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1406,6 +1513,32 @@ code {
 @media (max-width: 991.98px) {
   .admin-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 640px) {
+  .project-hero {
+    grid-template-columns: minmax(8.5rem, 38%) minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .project-hero .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .project-hero__media img {
+    max-height: 360px;
+  }
+}
+
+@container (max-width: 420px) {
+  .project-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .project-hero__media img {
+    aspect-ratio: 16 / 10;
+    max-height: 220px;
   }
 }
 
@@ -1791,27 +1924,25 @@ code {
 }
 
 .status-pill--active,
-.status-pill--in-progress,
 .status-pill--present,
 .status-pill--approved,
 .status-pill--good,
 .status-pill--available,
-.status-pill--excellent {
-  background: var(--ccms-success-bg);
-  color: var(--ccms-success);
+.status-pill--excellent,
+.status-pill--operational {
+  background: #14532d;
+  color: #bbf7d0;
+  box-shadow: inset 0 0 0 1px #16803c;
 }
 
-.status-pill--completed,
-.status-pill--verified,
-.status-pill--fulfilled,
-.status-pill--delivered {
-  background: var(--ccms-info-bg);
-  color: var(--ccms-info);
-}
-
-.status-pill--ready-for-review {
-  background: #312e81;
-  color: #c4b5fd;
+.status-pill--in-progress,
+.status-pill--allocated,
+.status-pill--issued,
+.status-pill--reserved,
+.status-pill--assigned {
+  background: #1e3a8a;
+  color: #bfdbfe;
+  box-shadow: inset 0 0 0 1px #2563eb;
 }
 
 .status-pill--pending,
@@ -1820,27 +1951,57 @@ code {
 .status-pill--on-leave,
 .status-pill--draft,
 .status-pill--medium,
-.status-pill--under-maintenance,
-.status-pill--fair {
-  background: var(--ccms-warning-bg);
-  color: var(--ccms-warning);
+.status-pill--fair,
+.status-pill--ready-for-review,
+.status-pill--rework-required,
+.status-pill--pending-approval,
+.status-pill--return-pending,
+.status-pill--needs-inspection {
+  background: #78350f;
+  color: #fde68a;
+  box-shadow: inset 0 0 0 1px #d97706;
 }
 
-.status-pill--allocated {
-  background: var(--ccms-info-bg);
-  color: var(--ccms-info);
-}
-
+.status-pill--completed,
+.status-pill--verified,
 .status-pill--cancelled,
+.status-pill--inactive,
+.status-pill--fulfilled,
+.status-pill--delivered {
+  background: #1e293b;
+  color: #cbd5e1;
+  box-shadow: inset 0 0 0 1px #64748b;
+}
+
+.status-pill--under-maintenance {
+  background: #4c1d95;
+  color: #ddd6fe;
+  box-shadow: inset 0 0 0 1px #7c3aed;
+}
+
 .status-pill--overdue,
 .status-pill--rejected,
 .status-pill--urgent,
+.status-pill--critical,
 .status-pill--high,
 .status-pill--delayed,
 .status-pill--unavailable,
-.status-pill--poor {
-  background: var(--ccms-danger-bg);
-  color: var(--ccms-danger);
+.status-pill--poor,
+.status-pill--damaged,
+.status-pill--failed {
+  background: #7f1d1d;
+  color: #fecaca;
+  box-shadow: inset 0 0 0 1px #dc2626;
+}
+
+.deadline-readout {
+  margin: 0.75rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.deadline-readout.is-overdue {
+  color: #fecaca;
 }
 
 .empty-state {
@@ -2762,6 +2923,47 @@ code {
   background-color: var(--ccms-surface-muted);
   border-color: var(--ccms-border-strong);
   color: var(--ccms-text);
+}
+
+.project-folds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.project-fold {
+  border: 1px solid var(--ccms-border);
+  border-radius: var(--radius-md);
+  background: var(--ccms-surface);
+}
+
+.project-fold__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0.9rem 1rem;
+  background: transparent;
+  border: 0;
+  color: var(--ccms-text);
+  font-weight: 600;
+  text-align: left;
+}
+
+.project-fold__trigger:hover,
+.project-fold.is-open .project-fold__trigger {
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.project-fold__trigger:focus-visible {
+  outline: 2px solid var(--ccms-amber);
+  outline-offset: -2px;
+}
+
+.project-fold__panel {
+  border-top: 1px solid var(--ccms-border);
+  padding: var(--space-4);
 }
 
 .nav-tabs {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import select
@@ -161,19 +162,42 @@ def list_maintenance(actor: User, equipment_id: int | None = None) -> list[dict]
     return [r.to_dict() for r in db.session.scalars(stmt)]
 
 
-def complete_maintenance(actor: User, equipment_id: int) -> Equipment:
-    """Mark equipment available after maintenance."""
+def complete_maintenance(actor: User, equipment_id: int, *, release: bool = False) -> Equipment:
+    """Record that repairs finished. Stock stays held until an inspection release."""
     if actor.role_name not in {ADMINISTRATOR, PROJECT_MANAGER, SITE_ENGINEER}:
         raise InventoryServiceError("Not allowed.", status_code=403)
     equipment = db.session.get(Equipment, equipment_id)
     if equipment is None:
         raise InventoryServiceError("Equipment not found.", status_code=404)
-    equipment.status = "Available"
-    if equipment.available_unit_count() <= 0 and equipment.allocated_unit_count() > 0:
-        equipment.status = "Allocated"
+    if equipment.status != "Under Maintenance" and int(equipment.maintenance_hold or 0) <= 0:
+        raise InventoryServiceError("This equipment is not under maintenance.")
+    latest = db.session.scalar(
+        select(MaintenanceRecord)
+        .where(MaintenanceRecord.equipment_id == equipment.id)
+        .order_by(MaintenanceRecord.id.desc())
+    )
+    if release:
+        if latest is not None and latest.inspection_result != "Repairs recorded" and latest.completed_at is None:
+            raise InventoryServiceError("Record the completed repair before releasing equipment to stock.")
+        equipment.maintenance_hold = 0
+        if equipment.condition in {"Poor", "Damaged", "Needs inspection"}:
+            equipment.condition = "Good"
+        allocated = equipment.allocated_unit_count()
+        equipment.status = "Allocated" if allocated >= int(equipment.quantity or 1) else "Available"
+        action = f'Released "{equipment.name}" to stock after inspection'
+        if latest is not None:
+            latest.inspection_result = "Passed"
+    else:
+        equipment.status = "Under Maintenance"
+        if int(equipment.maintenance_hold or 0) <= 0:
+            equipment.maintenance_hold = int(equipment.quantity or 1)
+        if latest is not None:
+            latest.completed_at = date.today()
+            latest.inspection_result = "Repairs recorded"
+        action = f'Recorded repairs for "{equipment.name}" — still held until inspection'
     log_activity(
         actor=actor,
-        action=f'Marked equipment "{equipment.name}" available after maintenance',
+        action=action,
         entity_type="equipment",
         entity_id=equipment.id,
     )

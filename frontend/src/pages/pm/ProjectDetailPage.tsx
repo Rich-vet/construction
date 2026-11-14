@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Alert, Badge, Button, Form, Nav, Spinner, Table, Tab } from 'react-bootstrap'
+import { Alert, Badge, Button, Form, Spinner, Table } from 'react-bootstrap'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
 import { ApiError } from '../../api/auth'
@@ -21,6 +21,7 @@ import {
   reviewMaterialRequest,
   selectQuotation,
   upsertBudget,
+  requestTaskRework,
   verifyTask,
 } from '../../api/projects'
 
@@ -29,26 +30,24 @@ export function ProjectDetailPage() {
   const [searchParams] = useSearchParams()
   const projectId = Number(id)
   const tabParam = searchParams.get('tab')
+  const sectionKeys = [
+    'overview',
+    'tasks',
+    'milestones',
+    'team',
+    'budget',
+    'expenses',
+    'procurement',
+    'progress',
+    'reports',
+  ]
   const initialTab =
     tabParam === 'site'
       ? 'progress'
-      : tabParam === 'procurement'
-        ? 'procurement'
-        : tabParam &&
-            [
-              'overview',
-              'tasks',
-              'milestones',
-              'team',
-              'budget',
-              'expenses',
-              'procurement',
-              'progress',
-              'reports',
-            ].includes(tabParam)
-          ? tabParam
-          : 'overview'
-  const [activeTab, setActiveTab] = useState(initialTab)
+      : tabParam && sectionKeys.includes(tabParam)
+        ? tabParam
+        : null
+  const [activeTab, setActiveTab] = useState<string | null>(initialTab)
   const [workspace, setWorkspace] = useState<Record<string, unknown> | null>(null)
   const [meta, setMeta] = useState<Awaited<ReturnType<typeof fetchProjectMeta>> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -114,235 +113,297 @@ export function ProjectDetailPage() {
       {message ? <Alert variant="success">{message}</Alert> : null}
 
       <div className="detail-panel mb-4">
-        <div className="detail-panel__actions">
-          {canManage ? (
-            <Link to={`/projects/${projectId}/edit`} className="btn btn-primary">
-              Edit project
-            </Link>
-          ) : null}
-          <Link to="/projects" className="btn btn-outline-secondary">
-            Back
-          </Link>
+        <div className="project-hero">
+          <figure className="project-hero__media">
+            <img src={sitePhotoFor(project, projectId)} alt={`Construction crew at ${String(project.name)}`} />
+          </figure>
+          <div className="project-hero__body">
+            <div className="detail-panel__actions">
+              {canManage ? (
+                <Link to={`/projects/${projectId}/edit`} className="btn btn-primary">
+                  Edit project
+                </Link>
+              ) : null}
+              <Link to="/projects" className="btn btn-outline-secondary">
+                Back
+              </Link>
+            </div>
+            <dl className="detail-grid">
+              <div>
+                <dt>Client</dt>
+                <dd>{String(project.client_name)}</dd>
+              </div>
+              <div>
+                <dt>Location</dt>
+                <dd>{String(project.location)}</dd>
+              </div>
+              <div>
+                <dt>Manager</dt>
+                <dd>{String(project.project_manager_name ?? '—')}</dd>
+              </div>
+              <div>
+                <dt>Site engineer</dt>
+                <dd>{String(project.site_engineer_name ?? '—')}</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd>
+                  <Badge bg="secondary">{String(project.status)}</Badge>
+                </dd>
+              </div>
+              <div>
+                <dt>Progress</dt>
+                <dd>{Number(project.progress)}%</dd>
+              </div>
+              <div>
+                <dt>Budget</dt>
+                <dd>K{Number(totals?.budget ?? 0).toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt>Actual spend</dt>
+                <dd>K{Number(totals?.actual_expenditure ?? 0).toLocaleString()}</dd>
+              </div>
+            </dl>
+          </div>
         </div>
-        <dl className="detail-grid">
-          <div>
-            <dt>Client</dt>
-            <dd>{String(project.client_name)}</dd>
-          </div>
-          <div>
-            <dt>Location</dt>
-            <dd>{String(project.location)}</dd>
-          </div>
-          <div>
-            <dt>Manager</dt>
-            <dd>{String(project.project_manager_name ?? '—')}</dd>
-          </div>
-          <div>
-            <dt>Site engineer</dt>
-            <dd>{String(project.site_engineer_name ?? '—')}</dd>
-          </div>
-          <div>
-            <dt>Status</dt>
-            <dd>
-              <Badge bg="secondary">{String(project.status)}</Badge>
-            </dd>
-          </div>
-          <div>
-            <dt>Progress</dt>
-            <dd>{Number(project.progress)}%</dd>
-          </div>
-          <div>
-            <dt>Budget</dt>
-            <dd>K{Number(totals?.budget ?? 0).toLocaleString()}</dd>
-          </div>
-          <div>
-            <dt>Actual spend</dt>
-            <dd>K{Number(totals?.actual_expenditure ?? 0).toLocaleString()}</dd>
-          </div>
-        </dl>
       </div>
 
-      <Tab.Container activeKey={activeTab} onSelect={(k) => k && setActiveTab(k)}>
-        <Nav variant="tabs" className="mb-3 project-tabs">
-          {[
-            'overview',
-            'tasks',
-            'milestones',
-            'team',
-            'budget',
-            'expenses',
-            'procurement',
-            'progress',
-            'reports',
-          ].map((key) => (
-            <Nav.Item key={key}>
-              <Nav.Link eventKey={key} className="text-capitalize">
-                {key}
-              </Nav.Link>
-            </Nav.Item>
-          ))}
-        </Nav>
-
-        <Tab.Content>
-          <Tab.Pane eventKey="overview">
-            <div className="panel-card">
-              <p>{String(project.description || 'No description provided.')}</p>
-              <p className="text-muted mb-0">
-                {String(project.start_date || '—')} → {String(project.expected_completion || '—')}
-              </p>
-            </div>
-          </Tab.Pane>
-
-          <Tab.Pane eventKey="tasks">
-            <WorkspaceTasks
-              canManage={canManage}
-              canOperateSite={canOperateSite}
-              projectId={projectId}
-              tasks={(workspace?.tasks as Array<Record<string, unknown>>) || []}
-              users={meta?.assignable_users || []}
-              onCreate={(payload) =>
-                run(() => createTask(payload), 'Task created successfully.')
-              }
-              onVerify={(tid) => run(() => verifyTask(tid), 'Task verified.')}
-            />
-          </Tab.Pane>
-
-          <Tab.Pane eventKey="milestones">
-            <WorkspaceMilestones
-              canManage={canManage}
-              projectId={projectId}
-              milestones={(workspace?.milestones as Array<Record<string, unknown>>) || []}
-              onCreate={(payload) =>
-                run(() => createMilestone(payload), 'Milestone created.')
-              }
-              onComplete={(mid) => run(() => completeMilestone(mid), 'Milestone completed.')}
-            />
-          </Tab.Pane>
-
-          <Tab.Pane eventKey="team">
-            <WorkspaceTeam
-              canManage={canManage}
-              projectId={projectId}
-              members={(workspace?.members as Array<Record<string, unknown>>) || []}
-              users={meta?.assignable_users || []}
-              onAdd={(payload) => run(() => addMember(projectId, payload), 'Member added.')}
-              onRemove={(mid) =>
-                run(async () => {
-                  if (window.confirm('Remove this team member?')) await removeMember(mid)
-                }, 'Member removed.')
-              }
-            />
-          </Tab.Pane>
-
-          <Tab.Pane eventKey="budget">
-            <WorkspaceBudget
-              canManage={canManage}
-              projectId={projectId}
-              rows={(workspace?.budget_vs_actual as Array<Record<string, unknown>>) || []}
-              onSave={(category, amount) =>
-                run(() => upsertBudget(projectId, category, amount), 'Budget saved.')
-              }
-              onReview={(category, status) =>
-                run(
-                  () => reviewBudgetRevision(projectId, category, status),
-                  `Budget revision ${status.toLowerCase()}.`,
-                )
-              }
-            />
-          </Tab.Pane>
-
-          <Tab.Pane eventKey="expenses">
-            <WorkspaceExpenses
-              canManage={canManage}
-              projectId={projectId}
-              expenses={(workspace?.expenses as Array<Record<string, unknown>>) || []}
-              categories={meta?.budget_categories || []}
-              onCreate={(payload) =>
-                run(() => createExpense(payload), 'Expense submitted for approval.')
-              }
-              onReview={(id, status) =>
-                run(() => reviewExpense(id, status), `Expense ${status.toLowerCase()}.`)
-              }
-            />
-          </Tab.Pane>
-
-          <Tab.Pane eventKey="procurement">
-            <WorkspaceProcurement
-              canManage={canManage}
-              projectId={projectId}
-              materials={(meta?.materials as Array<Record<string, unknown>>) || []}
-              requests={(workspace?.material_requests as Array<Record<string, unknown>>) || []}
-              quotations={(workspace?.quotations as Array<Record<string, unknown>>) || []}
-              purchaseOrders={(workspace?.purchase_orders as Array<Record<string, unknown>>) || []}
-              deliveries={(workspace?.deliveries as Array<Record<string, unknown>>) || []}
-              onRequest={(payload) =>
-                run(() => createMaterialRequest(payload), 'Material request submitted.')
-              }
-              onReview={(rid, status) =>
-                run(() => reviewMaterialRequest(rid, status), `Request ${status.toLowerCase()}.`)
-              }
-              onQuote={(payload) => run(() => createQuotation(payload), 'Quotation recorded.')}
-              onSelect={(qid) => run(() => selectQuotation(qid), 'Quotation selected.')}
-              onPo={(qid) =>
-                run(() => createPurchaseOrder({ quotation_id: qid }), 'Purchase order created.')
-              }
-              onDelivery={(payload) =>
-                run(() => createDelivery(payload), 'Delivery recorded.')
-              }
-            />
-          </Tab.Pane>
-
-          <Tab.Pane eventKey="progress">
-            <div className="panel-card mb-3">
-              <p className="empty-hint mb-2">
-                Progress is recorded through the Site Diary (activities + %). View recent posts below.
-              </p>
-              {canOperateSite ? (
-                <Link to={`/site-diary?project_id=${projectId}`} className="btn btn-primary">
-                  Open Site Diary
-                </Link>
-              ) : null}
-            </div>
-            <SimpleList
-              title="Progress updates"
-              empty="No progress updates yet."
-              items={(workspace?.progress_updates as Array<Record<string, unknown>>) || []}
-              render={(item) => (
+      <div className="project-folds">
+        {(
+          [
+            {
+              key: 'overview',
+              label: 'Overview',
+              content: (
+                <div className="panel-card">
+                  <p>{String(project.description || 'No description provided.')}</p>
+                  <p className="text-muted mb-0">
+                    {String(project.start_date || '—')} → {String(project.expected_completion || '—')}
+                  </p>
+                </div>
+              ),
+            },
+            {
+              key: 'tasks',
+              label: 'Tasks',
+              content: (
+                <WorkspaceTasks
+                  canManage={canManage}
+                  canOperateSite={canOperateSite}
+                  projectId={projectId}
+                  tasks={(workspace?.tasks as Array<Record<string, unknown>>) || []}
+                  users={meta?.assignable_users || []}
+                  members={(workspace?.members as Array<Record<string, unknown>>) || []}
+                  onCreate={(payload) =>
+                    run(() => createTask(payload), 'Task created successfully.')
+                  }
+                  onVerify={(tid) => run(() => verifyTask(tid), 'Work approved.')}
+                  onRework={(tid, payload) =>
+                    run(() => requestTaskRework(tid, payload), 'Task returned for rework.')
+                  }
+                />
+              ),
+            },
+            {
+              key: 'milestones',
+              label: 'Milestones',
+              content: (
+                <WorkspaceMilestones
+                  canManage={canManage}
+                  projectId={projectId}
+                  milestones={(workspace?.milestones as Array<Record<string, unknown>>) || []}
+                  onCreate={(payload) =>
+                    run(() => createMilestone(payload), 'Milestone created.')
+                  }
+                  onComplete={(mid) => run(() => completeMilestone(mid), 'Milestone completed.')}
+                />
+              ),
+            },
+            {
+              key: 'team',
+              label: 'Team',
+              content: (
+                <WorkspaceTeam
+                  canManage={canManage}
+                  projectId={projectId}
+                  members={(workspace?.members as Array<Record<string, unknown>>) || []}
+                  users={meta?.assignable_users || []}
+                  onAdd={(payload) => run(() => addMember(projectId, payload), 'Member added.')}
+                  onRemove={(mid) =>
+                    run(async () => {
+                      if (window.confirm('Remove this team member?')) await removeMember(mid)
+                    }, 'Member removed.')
+                  }
+                />
+              ),
+            },
+            {
+              key: 'budget',
+              label: 'Budget',
+              content: (
+                <WorkspaceBudget
+                  canManage={canManage}
+                  projectId={projectId}
+                  rows={(workspace?.budget_vs_actual as Array<Record<string, unknown>>) || []}
+                  onSave={(category, amount) =>
+                    run(() => upsertBudget(projectId, category, amount), 'Budget saved.')
+                  }
+                  onReview={(category, status) =>
+                    run(
+                      () => reviewBudgetRevision(projectId, category, status),
+                      `Budget revision ${status.toLowerCase()}.`,
+                    )
+                  }
+                />
+              ),
+            },
+            {
+              key: 'expenses',
+              label: 'Expenses',
+              content: (
+                <WorkspaceExpenses
+                  canManage={canManage}
+                  projectId={projectId}
+                  expenses={(workspace?.expenses as Array<Record<string, unknown>>) || []}
+                  categories={meta?.budget_categories || []}
+                  onCreate={(payload) =>
+                    run(() => createExpense(payload), 'Expense submitted for approval.')
+                  }
+                  onReview={(id, status) =>
+                    run(() => reviewExpense(id, status), `Expense ${status.toLowerCase()}.`)
+                  }
+                />
+              ),
+            },
+            {
+              key: 'procurement',
+              label: 'Procurement',
+              content: (
+                <WorkspaceProcurement
+                  canManage={canManage}
+                  projectId={projectId}
+                  materials={(meta?.materials as Array<Record<string, unknown>>) || []}
+                  requests={(workspace?.material_requests as Array<Record<string, unknown>>) || []}
+                  quotations={(workspace?.quotations as Array<Record<string, unknown>>) || []}
+                  purchaseOrders={(workspace?.purchase_orders as Array<Record<string, unknown>>) || []}
+                  deliveries={(workspace?.deliveries as Array<Record<string, unknown>>) || []}
+                  onRequest={(payload) =>
+                    run(() => createMaterialRequest(payload), 'Material request submitted.')
+                  }
+                  onReview={(rid, status) =>
+                    run(() => reviewMaterialRequest(rid, status), `Request ${status.toLowerCase()}.`)
+                  }
+                  onQuote={(payload) => run(() => createQuotation(payload), 'Quotation recorded.')}
+                  onSelect={(qid) => run(() => selectQuotation(qid), 'Quotation selected.')}
+                  onPo={(qid) =>
+                    run(() => createPurchaseOrder({ quotation_id: qid }), 'Purchase order created.')
+                  }
+                  onDelivery={(payload) =>
+                    run(() => createDelivery(payload), 'Delivery recorded.')
+                  }
+                />
+              ),
+            },
+            {
+              key: 'progress',
+              label: 'Progress',
+              content: (
                 <>
-                  <strong>{String(item.update_date)}</strong> — {Number(item.percentage)}%
-                  <div>{String(item.work_completed)}</div>
+                  <div className="panel-card mb-3">
+                    <p className="empty-hint mb-2">
+                      Progress is recorded through the Site Diary (activities + %). View recent posts below.
+                    </p>
+                    {canOperateSite ? (
+                      <Link to={`/site-diary?project_id=${projectId}`} className="btn btn-primary">
+                        Open Site Diary
+                      </Link>
+                    ) : null}
+                  </div>
+                  <SimpleList
+                    title="Progress updates"
+                    empty="No progress updates yet."
+                    items={(workspace?.progress_updates as Array<Record<string, unknown>>) || []}
+                    render={(item) => (
+                      <>
+                        <strong>{String(item.update_date)}</strong> — {Number(item.percentage)}%
+                        <div>{String(item.work_completed)}</div>
+                      </>
+                    )}
+                  />
                 </>
-              )}
-            />
-          </Tab.Pane>
-
-          <Tab.Pane eventKey="reports">
-            <div className="panel-card mb-3">
-              <p className="empty-hint mb-2">
-                Daily site reports are submitted via Site Diary. This tab shows history for the project.
-              </p>
-              {canOperateSite ? (
-                <Link to={`/site-diary?project_id=${projectId}`} className="btn btn-primary">
-                  Open Site Diary
-                </Link>
-              ) : null}
-            </div>
-            <SimpleList
-              title="Site reports"
-              empty="No site reports yet."
-              items={(workspace?.site_reports as Array<Record<string, unknown>>) || []}
-              render={(item) => (
+              ),
+            },
+            {
+              key: 'reports',
+              label: 'Reports',
+              content: (
                 <>
-                  <strong>{String(item.report_date)}</strong>
-                  <div>{String(item.activities_completed || '—')}</div>
+                  <div className="panel-card mb-3">
+                    <p className="empty-hint mb-2">
+                      Daily site reports are submitted via Site Diary. This section shows history for the project.
+                    </p>
+                    {canOperateSite ? (
+                      <Link to={`/site-diary?project_id=${projectId}`} className="btn btn-primary">
+                        Open Site Diary
+                      </Link>
+                    ) : null}
+                  </div>
+                  <SimpleList
+                    title="Site reports"
+                    empty="No site reports yet."
+                    items={(workspace?.site_reports as Array<Record<string, unknown>>) || []}
+                    render={(item) => (
+                      <>
+                        <strong>{String(item.report_date)}</strong>
+                        <div>{String(item.activities_completed || '—')}</div>
+                      </>
+                    )}
+                  />
                 </>
-              )}
-            />
-          </Tab.Pane>
-        </Tab.Content>
-      </Tab.Container>
+              ),
+            },
+          ] as Array<{ key: string; label: string; content: ReactNode }>
+        ).map((section) => {
+          const open = activeTab === section.key
+          return (
+            <section
+              key={section.key}
+              id={`project-section-${section.key}`}
+              className={`project-fold${open ? ' is-open' : ''}`}
+            >
+              <button
+                type="button"
+                className="project-fold__trigger"
+                aria-expanded={open}
+                aria-controls={`project-panel-${section.key}`}
+                onClick={() => {
+                  setActiveTab(open ? null : section.key)
+                }}
+              >
+                <span>{section.label}</span>
+                <i className={`bi ${open ? 'bi-chevron-up' : 'bi-chevron-down'}`} aria-hidden="true" />
+              </button>
+              {open ? (
+                <div className="project-fold__panel" id={`project-panel-${section.key}`}>
+                  {section.content}
+                </div>
+              ) : null}
+            </section>
+          )
+        })}
+      </div>
     </AppShell>
   )
+}
+
+const SITE_PHOTOS = ['/sites/site-warehouse.jpg', '/sites/site-housing.jpg', '/sites/site-civic.jpg']
+
+function sitePhotoFor(project: Record<string, unknown>, projectId: number) {
+  const label = `${String(project.name || '')} ${String(project.location || '')}`.toLowerCase()
+  if (label.includes('warehouse') || label.includes('ndola')) return SITE_PHOTOS[0]
+  if (label.includes('housing') || label.includes('kitwe')) return SITE_PHOTOS[1]
+  if (label.includes('civic') || label.includes('lusaka')) return SITE_PHOTOS[2]
+  return SITE_PHOTOS[Math.abs(projectId) % SITE_PHOTOS.length]
 }
 
 function SimpleList({
@@ -378,51 +439,92 @@ function WorkspaceTasks(props: {
   projectId: number
   tasks: Array<Record<string, unknown>>
   users: Array<{ id: number; full_name: string; role: string }>
+  members: Array<Record<string, unknown>>
   onCreate: (payload: Record<string, unknown>) => void
   onVerify: (taskId: number) => void
+  onRework: (taskId: number, payload: Record<string, unknown>) => void
 }) {
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [instructions, setInstructions] = useState('')
+  const [checklist, setChecklist] = useState('')
   const [priority, setPriority] = useState('Medium')
   const [assigned, setAssigned] = useState('')
-  const [dueDate, setDueDate] = useState('')
+  const [dueAt, setDueAt] = useState('')
+  const [reworkFor, setReworkFor] = useState<number | null>(null)
+  const [reworkNotes, setReworkNotes] = useState('')
+  const [reworkDeadline, setReworkDeadline] = useState('')
+  const siteWorkers = props.members.filter((member) => {
+    const role = String(member.user_role || '')
+    return role === 'Contractor/Worker' || role === ''
+  })
+  const canCreate = props.canManage || props.canOperateSite
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     props.onCreate({
       project_id: props.projectId,
       name,
+      description,
+      instructions,
+      checklist: checklist.split('\n'),
       priority,
       assigned_user_id: assigned ? Number(assigned) : null,
-      due_date: dueDate || null,
+      due_at: dueAt ? new Date(dueAt).toISOString() : null,
+      require_evidence: false,
     })
     setName('')
+    setDescription('')
+    setInstructions('')
+    setChecklist('')
   }
 
   return (
     <div className="panel-card">
-      {props.canManage ? (
-        <Form className="filter-bar mb-3" onSubmit={submit}>
-          <Form.Control
-            placeholder="Task name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <Form.Select value={priority} onChange={(e) => setPriority(e.target.value)}>
-            {['Low', 'Medium', 'High', 'Urgent'].map((p) => (
-              <option key={p}>{p}</option>
-            ))}
-          </Form.Select>
-          <Form.Select value={assigned} onChange={(e) => setAssigned(e.target.value)}>
-            <option value="">Unassigned</option>
-            {props.users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.full_name} ({u.role})
-              </option>
-            ))}
-          </Form.Select>
-          <Form.Control type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-          <Button type="submit">Add task</Button>
+      {canCreate ? (
+        <Form className="form-grid mb-3" onSubmit={submit}>
+          <Form.Group>
+            <Form.Label>Task title</Form.Label>
+            <Form.Control value={name} onChange={(e) => setName(e.target.value)} required />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Priority</Form.Label>
+            <Form.Select value={priority} onChange={(e) => setPriority(e.target.value)}>
+              {['Low', 'Medium', 'High', 'Urgent', 'Critical'].map((p) => (
+                <option key={p}>{p}</option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Site worker</Form.Label>
+            <Form.Select value={assigned} onChange={(e) => setAssigned(e.target.value)} required>
+              <option value="">Select a worker on this site</option>
+              {siteWorkers.map((member) => (
+                <option key={String(member.user_id)} value={String(member.user_id)}>
+                  {String(member.user_name)} ({String(member.user_role || 'Member')})
+                </option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Deadline</Form.Label>
+            <Form.Control type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} required />
+          </Form.Group>
+          <Form.Group className="form-grid__full">
+            <Form.Label>Description</Form.Label>
+            <Form.Control value={description} onChange={(e) => setDescription(e.target.value)} />
+          </Form.Group>
+          <Form.Group className="form-grid__full">
+            <Form.Label>Work instructions</Form.Label>
+            <Form.Control as="textarea" rows={2} value={instructions} onChange={(e) => setInstructions(e.target.value)} />
+          </Form.Group>
+          <Form.Group className="form-grid__full">
+            <Form.Label>Checklist (one item per line)</Form.Label>
+            <Form.Control as="textarea" rows={2} value={checklist} onChange={(e) => setChecklist(e.target.value)} />
+          </Form.Group>
+          <div className="form-grid__full">
+            <Button type="submit">Create task</Button>
+          </div>
         </Form>
       ) : null}
       <Table responsive hover size="sm" className="mb-0">
@@ -442,13 +544,24 @@ function WorkspaceTasks(props: {
               <td>{String(t.name)}</td>
               <td>{String(t.assigned_user_name ?? '—')}</td>
               <td>{String(t.priority)}</td>
-              <td>{String(t.due_date ?? '—')}</td>
+              <td>
+                {String(t.due_date ?? '—')}
+                {t.is_overdue ? ' · Overdue' : ''}
+              </td>
               <td>{String(t.status)}</td>
               <td className="table-actions">
                 {props.canOperateSite && Boolean(t.can_verify) ? (
-                  <Button size="sm" variant="success" onClick={() => props.onVerify(Number(t.id))}>
-                    Verify Completion
-                  </Button>
+                  <>
+                    <Button size="sm" variant="success" onClick={() => props.onVerify(Number(t.id))}>
+                      Approve work
+                    </Button>
+                    <Button size="sm" variant="outline-warning" onClick={() => setReworkFor(Number(t.id))}>
+                      Request rework
+                    </Button>
+                  </>
+                ) : null}
+                {t.completion_report ? (
+                  <div className="small text-muted mt-1">{String(t.completion_report)}</div>
                 ) : null}
               </td>
             </tr>
@@ -456,6 +569,49 @@ function WorkspaceTasks(props: {
         </tbody>
       </Table>
       {props.tasks.length === 0 ? <p className="empty-hint mt-3">No tasks yet.</p> : null}
+      {reworkFor ? (
+        <Form
+          className="form-grid mt-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            props.onRework(reworkFor, {
+              instructions: reworkNotes,
+              deficiencies: reworkNotes,
+              new_deadline: new Date(reworkDeadline).toISOString(),
+            })
+            setReworkFor(null)
+            setReworkNotes('')
+            setReworkDeadline('')
+          }}
+        >
+          <Form.Group className="form-grid__full">
+            <Form.Label>Correction instructions</Form.Label>
+            <Form.Control
+              as="textarea"
+              required
+              value={reworkNotes}
+              onChange={(e) => setReworkNotes(e.target.value)}
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>New deadline</Form.Label>
+            <Form.Control
+              type="datetime-local"
+              required
+              value={reworkDeadline}
+              onChange={(e) => setReworkDeadline(e.target.value)}
+            />
+          </Form.Group>
+          <div className="form-grid__full d-flex gap-2">
+            <Button type="submit" variant="warning">
+              Return for rework
+            </Button>
+            <Button type="button" variant="outline-secondary" onClick={() => setReworkFor(null)}>
+              Cancel
+            </Button>
+          </div>
+        </Form>
+      ) : null}
     </div>
   )
 }

@@ -84,6 +84,14 @@ export function updateTask(id: number, payload: Record<string, unknown>) {
   return apiRequest(`/api/projects/tasks/${id}`, { method: 'PUT', body: payload, csrf: true })
 }
 
+export function requestTaskRework(id: number, payload: Record<string, unknown>) {
+  return apiRequest(`/api/projects/tasks/${id}/rework`, {
+    method: 'POST',
+    body: payload,
+    csrf: true,
+  })
+}
+
 export function verifyTask(id: number) {
   return apiRequest(`/api/projects/tasks/${id}/verify`, { method: 'POST', csrf: true })
 }
